@@ -14,6 +14,14 @@
 // You should have received a copy of the GNU General Public License
 // along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
 
+/**
+ * Handles Zendesk JWT single sign-on for Moodle-authenticated users.
+ *
+ * @package    local_zendesk
+ * @copyright  2026 David Ta <david.ta@saylor.org>
+ * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ */
+
 namespace local_zendesk\local\service;
 
 use local_zendesk\local\constants;

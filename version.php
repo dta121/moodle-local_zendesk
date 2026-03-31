@@ -14,11 +14,19 @@
 // You should have received a copy of the GNU General Public License
 // along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
 
+/**
+ * Plugin version metadata.
+ *
+ * @package    local_zendesk
+ * @copyright  2026 David Ta <david.ta@saylor.org>
+ * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ */
+
 defined('MOODLE_INTERNAL') || die();
 
 $plugin->component = 'local_zendesk';
-$plugin->version = 2026033101;
-$plugin->requires = 2022112800;
-$plugin->supported = [401, 405];
+$plugin->version = 2026033102;
+$plugin->requires = 2024100700;
+$plugin->supported = [405, 405];
 $plugin->maturity = MATURITY_ALPHA;
-$plugin->release = '0.1.0';
+$plugin->release = '0.2.0';

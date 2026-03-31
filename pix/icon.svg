@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-labelledby="title">
+  <title>Zendesk support integration</title>
+  <defs>
+    <linearGradient id="zendeskLocalGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#124734"/>
+      <stop offset="100%" stop-color="#227c62"/>
+    </linearGradient>
+  </defs>
+  <rect x="6" y="8" width="52" height="40" rx="12" fill="url(#zendeskLocalGradient)"/>
+  <path d="M18 22h28v4H18zm0 8h18v4H18zm0 8h24v4H18z" fill="#fff"/>
+  <path d="M24 48l8 8 8-8" fill="#227c62"/>
+  <path d="M24 48l8 8 8-8" fill="none" stroke="#124734" stroke-linecap="round" stroke-linejoin="round" stroke-width="3"/>
+</svg>
