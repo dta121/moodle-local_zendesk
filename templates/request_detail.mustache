@@ -1,0 +1,42 @@
+<div class="local-zendesk-request-detail">
+    <div class="mb-3">
+        <a class="btn btn-secondary" href="{{backurl}}">{{backlabel}}</a>
+    </div>
+
+    <div class="card">
+        <div class="card-body">
+            <div class="d-flex justify-content-between align-items-start flex-wrap">
+                <div class="mr-3">
+                    <h4 class="card-title mb-1">{{subject}}</h4>
+                    {{#hascourse}}
+                    <div class="text-muted small">{{coursefullname}}</div>
+                    {{/hascourse}}
+                </div>
+                <span class="{{statusclass}}">{{statuslabel}}</span>
+            </div>
+
+            <dl class="row mt-3">
+                <dt class="col-sm-3">{{createdlabel}}</dt>
+                <dd class="col-sm-9">{{timecreatedhuman}}</dd>
+
+                <dt class="col-sm-3">{{updatedlabel}}</dt>
+                <dd class="col-sm-9">{{timemodifiedhuman}}</dd>
+
+                {{#haszendeskticketid}}
+                <dt class="col-sm-3">{{requestnumberlabel}}</dt>
+                <dd class="col-sm-9">{{zendeskticketid}}</dd>
+                {{/haszendeskticketid}}
+            </dl>
+
+            {{#haserror}}
+            <div class="alert alert-warning">{{submissionerror}}</div>
+            {{/haserror}}
+
+            {{#hasbodyhtml}}
+            <div class="border rounded p-3 mt-3">
+                {{{bodyhtml}}}
+            </div>
+            {{/hasbodyhtml}}
+        </div>
+    </div>
+</div>
