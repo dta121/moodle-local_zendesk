@@ -565,6 +565,7 @@ final class zendesk_service {
         $htmlbody = trim((string) ($comment['html_body'] ?? ''));
         if ($htmlbody !== '') {
             $htmlbody = $this->rewrite_comment_asset_urls($localticketid, $htmlbody);
+            $htmlbody = $this->remove_inline_images_from_comment_html($htmlbody);
             return format_text($htmlbody, FORMAT_HTML, [
                 'trusted' => false,
                 'filter' => true,
@@ -592,7 +593,7 @@ final class zendesk_service {
         $attachments = [];
 
         foreach ($comment['attachments'] ?? [] as $attachment) {
-            if (!is_array($attachment) || !empty($attachment['deleted']) || !empty($attachment['inline'])) {
+            if (!is_array($attachment) || !empty($attachment['deleted'])) {
                 continue;
             }
 
@@ -624,6 +625,75 @@ final class zendesk_service {
         }
 
         return $attachments;
+    }
+
+    /**
+     * Remove inline images from Zendesk comment HTML so the preview rail can render them as thumbnails.
+     *
+     * @param string $html Raw Zendesk comment HTML.
+     * @return string
+     */
+    private function remove_inline_images_from_comment_html(string $html): string {
+        if (trim($html) === '') {
+            return '';
+        }
+
+        $document = new \DOMDocument('1.0', 'UTF-8');
+        $previousstate = libxml_use_internal_errors(true);
+        $wrapperid = 'local-zendesk-comment-root';
+        $loaded = $document->loadHTML(
+            '<?xml encoding="utf-8" ?><div id="' . $wrapperid . '">' . $html . '</div>',
+            LIBXML_HTML_NOIMPLIED | LIBXML_HTML_NODEFDTD
+        );
+        libxml_clear_errors();
+        libxml_use_internal_errors($previousstate);
+
+        if (!$loaded) {
+            return preg_replace('/<img\b[^>]*>/i', '', $html) ?? $html;
+        }
+
+        $images = [];
+        foreach ($document->getElementsByTagName('img') as $node) {
+            $images[] = $node;
+        }
+
+        foreach ($images as $image) {
+            if ($image->parentNode !== null) {
+                $image->parentNode->removeChild($image);
+            }
+        }
+
+        $xpath = new \DOMXPath($document);
+        while (true) {
+            $nodes = $xpath->query('//*[@id="' . $wrapperid . '"]//*[self::p or self::div or self::span or self::figure or self::a][not(*) and normalize-space(translate(., " ", " ")) = ""]');
+            if ($nodes === false || $nodes->length === 0) {
+                break;
+            }
+
+            $removed = false;
+            foreach ($nodes as $node) {
+                if ($node->parentNode !== null) {
+                    $node->parentNode->removeChild($node);
+                    $removed = true;
+                }
+            }
+
+            if (!$removed) {
+                break;
+            }
+        }
+
+        $root = $document->getElementById($wrapperid);
+        if ($root === null) {
+            return '';
+        }
+
+        $output = '';
+        foreach ($root->childNodes as $child) {
+            $output .= $document->saveHTML($child);
+        }
+
+        return trim((string) preg_replace('/(?:&nbsp;|\x{00A0}|\s)+/u', ' ', $output));
     }
 
     /**

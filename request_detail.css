@@ -356,11 +356,14 @@
 
 .local-zendesk-chat__bubble img {
     display: block;
-    max-width: min(100%, 28rem);
-    width: auto;
-    height: auto;
+    max-width: min(100%, 15rem) !important;
+    max-height: 11rem;
+    width: auto !important;
+    height: auto !important;
     margin: 0.35rem 0;
     border-radius: 0.9rem;
+    object-fit: contain;
+    cursor: zoom-in;
 }
 
 .local-zendesk-chat__bubble a {
@@ -414,9 +417,12 @@
 
 .local-zendesk-chat__attachment-preview {
     display: block;
-    max-width: min(100%, 24rem);
+    max-width: min(100%, 15rem);
+    max-height: 11rem;
+    width: auto;
     height: auto;
     border-radius: 0.8rem;
+    object-fit: contain;
 }
 
 .local-zendesk-chat__attachment-name {
