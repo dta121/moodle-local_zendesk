@@ -78,6 +78,8 @@ final class get_agent_context extends external_api {
             'email' => new external_value(PARAM_RAW_TRIMMED, 'Moodle email address.'),
             'profileurl' => new external_value(PARAM_URL, 'Moodle profile URL.'),
             'auth' => new external_value(PARAM_ALPHANUMEXT, 'Moodle authentication type.'),
+            'ipaddress' => new external_value(PARAM_RAW_TRIMMED, 'Moodle last known IP address.', VALUE_DEFAULT, ''),
+            'location' => new external_value(PARAM_TEXT, 'Location resolved from the last known IP address.', VALUE_DEFAULT, ''),
             'lastaccess' => new external_value(PARAM_INT, 'Unix timestamp of the user last access time.'),
             'courses' => new external_multiple_structure(new external_single_structure([
                 'id' => new external_value(PARAM_INT, 'Course id.'),

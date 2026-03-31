@@ -117,6 +117,8 @@ final class agent_context_service {
      * @return array
      */
     private function build_context_payload(\stdClass $user): array {
+        $ipcontext = $this->get_ip_context($user);
+
         return [
             'userid' => (int) $user->id,
             'externalid' => $this->build_user_external_id((int) $user->id),
@@ -124,8 +126,39 @@ final class agent_context_service {
             'email' => (string) $user->email,
             'profileurl' => (new \moodle_url('/user/profile.php', ['id' => $user->id]))->out(false),
             'auth' => (string) $user->auth,
+            'ipaddress' => $ipcontext['ipaddress'],
+            'location' => $ipcontext['location'],
             'lastaccess' => (int) ($user->lastaccess ?? 0),
             'courses' => $this->get_courses((int) $user->id),
+        ];
+    }
+
+    /**
+     * Build the visible IP address and location details for a user when allowed.
+     *
+     * @param \stdClass $user Moodle user record.
+     * @return array{ipaddress:string, location:string}
+     */
+    private function get_ip_context(\stdClass $user): array {
+        $context = \context_system::instance();
+        if (!has_capability('moodle/user:viewlastip', $context)) {
+            return [
+                'ipaddress' => '',
+                'location' => '',
+            ];
+        }
+
+        $ipaddress = trim((string) ($user->lastip ?? ''));
+        if ($ipaddress === '') {
+            return [
+                'ipaddress' => '',
+                'location' => '',
+            ];
+        }
+
+        return [
+            'ipaddress' => clean_param($ipaddress, PARAM_NOTAGS),
+            'location' => $this->format_location($this->lookup_location_parts($ipaddress)),
         ];
     }
 
@@ -166,6 +199,150 @@ final class agent_context_service {
         }
 
         return $courses;
+    }
+
+    /**
+     * Resolve city, state/region, and country for an IP address using Moodle's configured provider.
+     *
+     * @param string $ipaddress IP address to resolve.
+     * @return array{city:string, region:string, country:string}
+     */
+    private function lookup_location_parts(string $ipaddress): array {
+        global $CFG;
+
+        $parts = [
+            'city' => '',
+            'region' => '',
+            'country' => '',
+        ];
+
+        if ($ipaddress === '' || !filter_var($ipaddress, FILTER_VALIDATE_IP)) {
+            return $parts;
+        }
+
+        try {
+            if (!empty($CFG->geoip2file) && file_exists($CFG->geoip2file)) {
+                return $this->lookup_geoip2_location($ipaddress, (string) $CFG->geoip2file);
+            }
+
+            if (!empty($CFG->geopluginapikey)) {
+                return $this->lookup_geoplugin_location($ipaddress, (string) $CFG->geopluginapikey);
+            }
+
+            require_once($CFG->dirroot . '/iplookup/lib.php');
+            $info = iplookup_find_location($ipaddress);
+            if (!empty($info['error'])) {
+                return $parts;
+            }
+
+            return [
+                'city' => $this->clean_location_part($info['city'] ?? ''),
+                'region' => '',
+                'country' => $this->clean_location_part($info['country'] ?? ''),
+            ];
+        } catch (\Throwable $e) {
+            return $parts;
+        }
+    }
+
+    /**
+     * Resolve location parts using a local GeoIP2 database.
+     *
+     * @param string $ipaddress IP address to resolve.
+     * @param string $databasepath GeoIP database path.
+     * @return array{city:string, region:string, country:string}
+     */
+    private function lookup_geoip2_location(string $ipaddress, string $databasepath): array {
+        $reader = new \GeoIp2\Database\Reader($databasepath);
+        $record = $reader->city($ipaddress);
+        $countries = get_string_manager()->get_list_of_countries(true);
+        $countrycode = trim((string) ($record->country->isoCode ?? ''));
+        $country = $countrycode !== '' && isset($countries[$countrycode])
+            ? (string) $countries[$countrycode]
+            : (string) ($record->country->name ?? '');
+
+        return [
+            'city' => $this->clean_location_part($record->city->name ?? ''),
+            'region' => $this->clean_location_part($record->mostSpecificSubdivision->name ?? ''),
+            'country' => $this->clean_location_part($country),
+        ];
+    }
+
+    /**
+     * Resolve location parts using the configured geoPlugin integration.
+     *
+     * @param string $ipaddress IP address to resolve.
+     * @param string $apikey geoPlugin API key.
+     * @return array{city:string, region:string, country:string}
+     */
+    private function lookup_geoplugin_location(string $ipaddress, string $apikey): array {
+        global $CFG;
+
+        $parts = [
+            'city' => '',
+            'region' => '',
+            'country' => '',
+        ];
+
+        if (strpos($ipaddress, ':') !== false) {
+            return $parts;
+        }
+
+        require_once($CFG->libdir . '/filelib.php');
+
+        $requesturl = new \moodle_url('https://api.geoplugin.com', [
+            'ip' => $ipaddress,
+            'auth' => $apikey,
+        ]);
+        $response = download_file_content($requesturl->out(false), null, null, true);
+        if (!is_object($response) || (int) ($response->response_code ?? 0) !== 200) {
+            return $parts;
+        }
+
+        $ipdata = json_decode((string) ($response->results ?? ''), true);
+        if (!is_array($ipdata)) {
+            return $parts;
+        }
+
+        $countries = get_string_manager()->get_list_of_countries(true);
+        $countrycode = clean_param((string) ($ipdata['geoplugin_countryCode'] ?? ''), PARAM_ALPHANUMEXT);
+        $country = $countrycode !== '' && isset($countries[$countrycode])
+            ? (string) $countries[$countrycode]
+            : (string) ($ipdata['geoplugin_countryName'] ?? '');
+
+        return [
+            'city' => $this->clean_location_part($ipdata['geoplugin_city'] ?? ''),
+            'region' => $this->clean_location_part($ipdata['geoplugin_regionName'] ?? ''),
+            'country' => $this->clean_location_part($country),
+        ];
+    }
+
+    /**
+     * Build a human-friendly location label from city, region, and country parts.
+     *
+     * @param array{city:string, region:string, country:string} $parts Location parts.
+     * @return string
+     */
+    private function format_location(array $parts): string {
+        $values = [];
+        foreach (['city', 'region', 'country'] as $key) {
+            $value = trim((string) ($parts[$key] ?? ''));
+            if ($value !== '') {
+                $values[] = $value;
+            }
+        }
+
+        return implode(', ', $values);
+    }
+
+    /**
+     * Clean a city, region, or country value before returning it to Zendesk.
+     *
+     * @param mixed $value Raw location value.
+     * @return string
+     */
+    private function clean_location_part($value): string {
+        return clean_param(trim((string) $value), PARAM_TEXT);
     }
 
     /**
