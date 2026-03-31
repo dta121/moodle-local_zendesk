@@ -1,6 +1,9 @@
 <div class="local-zendesk-request-list">
-    <div class="mb-3">
-        <a class="btn btn-primary" href="{{newrequesturl}}">{{newrequestlabel}}</a>
+    <div class="mb-3 d-flex flex-wrap align-items-center">
+        <a class="btn btn-primary mr-2 mb-2" href="{{newrequesturl}}">{{newrequestlabel}}</a>
+        {{#hashelpcenterlink}}
+        <a class="btn btn-outline-secondary mb-2" href="{{helpcenterurl}}">{{helpcenterlabel}}</a>
+        {{/hashelpcenterlink}}
     </div>
 
     {{#requests}}
@@ -17,7 +20,7 @@
                 </div>
                 <span class="{{statusclass}}">{{statuslabel}}</span>
             </div>
-            <div class="text-muted small mt-2">{{createdlabel}} {{timecreatedhuman}} · {{updatedlabel}} {{timemodifiedhuman}}</div>
+            <div class="text-muted small mt-2">{{createdlabel}} {{timecreatedhuman}} &middot; {{updatedlabel}} {{timemodifiedhuman}}</div>
             <p class="mt-3 mb-0">{{bodyexcerpt}}</p>
         </div>
     </div>

@@ -96,5 +96,41 @@ if ($hassiteconfig) {
         PARAM_INT
     ));
 
+    $settings->add(new admin_setting_heading(
+        'local_zendesk/ssoheading',
+        get_string('ssoheading', 'local_zendesk'),
+        get_string('ssoheading_desc', 'local_zendesk')
+    ));
+
+    $settings->add(new admin_setting_configcheckbox(
+        'local_zendesk/ssoenabled',
+        get_string('ssoenabled', 'local_zendesk'),
+        get_string('ssoenabled_desc', 'local_zendesk'),
+        0
+    ));
+
+    $settings->add(new admin_setting_configpasswordunmask(
+        'local_zendesk/jwtsharedsecret',
+        get_string('jwtsharedsecret', 'local_zendesk'),
+        get_string('jwtsharedsecret_desc', 'local_zendesk'),
+        ''
+    ));
+
+    $settings->add(new admin_setting_configtext(
+        'local_zendesk/ssodefaultpath',
+        get_string('ssodefaultpath', 'local_zendesk'),
+        get_string('ssodefaultpath_desc', 'local_zendesk'),
+        '/hc/en-us/requests',
+        PARAM_RAW_TRIMMED
+    ));
+
+    $settings->add(new admin_setting_configtext(
+        'local_zendesk/ssobuttonlabel',
+        get_string('ssobuttonlabel', 'local_zendesk'),
+        get_string('ssobuttonlabel_desc', 'local_zendesk'),
+        get_string('openhelpcenter', 'local_zendesk'),
+        PARAM_TEXT
+    ));
+
     $ADMIN->add('localplugins', $settings);
 }

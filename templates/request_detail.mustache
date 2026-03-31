@@ -1,67 +1,108 @@
-<div class="local-zendesk-request-detail">
-    <div class="mb-3">
-        <a class="btn btn-secondary" href="{{backurl}}">{{backlabel}}</a>
-    </div>
-
-    <div class="card">
-        <div class="card-body">
-            <div class="d-flex justify-content-between align-items-start flex-wrap">
-                <div class="mr-3">
-                    <h4 class="card-title mb-1">{{subject}}</h4>
-                    {{#hascourse}}
-                    <div class="text-muted small">{{coursefullname}}</div>
-                    {{/hascourse}}
-                </div>
-                <span class="{{statusclass}}">{{statuslabel}}</span>
+<div class="local-zendesk-chat">
+    <section class="local-zendesk-chat__hero">
+        <div class="local-zendesk-chat__toolbar">
+            <a class="local-zendesk-chat__back" href="{{backurl}}">{{backlabel}}</a>
+            <div class="local-zendesk-chat__toolbar-actions">
+                {{#hashelpcenterlink}}
+                <a class="local-zendesk-chat__helpcenter" href="{{helpcenterurl}}">{{helpcenterlabel}}</a>
+                {{/hashelpcenterlink}}
+                <span class="local-zendesk-chat__status {{statusclass}}">{{statuslabel}}</span>
             </div>
+        </div>
 
-            <dl class="row mt-3">
-                <dt class="col-sm-3">{{createdlabel}}</dt>
-                <dd class="col-sm-9">{{timecreatedhuman}}</dd>
+        <div class="local-zendesk-chat__hero-main">
+            <div class="local-zendesk-chat__hero-avatar">{{supportreplyinitial}}</div>
+            <div class="local-zendesk-chat__hero-copy">
+                <div class="local-zendesk-chat__eyebrow">{{conversationeyebrow}}</div>
+                <h2 class="local-zendesk-chat__title">{{subject}}</h2>
+                <p class="local-zendesk-chat__subtitle">{{messagesubtitle}}</p>
+                {{#hascourse}}
+                <div class="local-zendesk-chat__context">{{coursefullname}}</div>
+                {{/hascourse}}
+            </div>
+        </div>
 
-                <dt class="col-sm-3">{{updatedlabel}}</dt>
-                <dd class="col-sm-9">{{timemodifiedhuman}}</dd>
+        <div class="local-zendesk-chat__meta {{#haszendeskticketid}}local-zendesk-chat__meta--has-ticket{{/haszendeskticketid}}{{^haszendeskticketid}}local-zendesk-chat__meta--two-up{{/haszendeskticketid}}">
+            <div class="local-zendesk-chat__meta-chip local-zendesk-chat__meta-chip--created">
+                <span>{{createdlabel}}</span>
+                <strong>{{timecreatedhuman}}</strong>
+            </div>
+            <div class="local-zendesk-chat__meta-chip local-zendesk-chat__meta-chip--updated">
+                <span>{{updatedlabel}}</span>
+                <strong>{{timemodifiedhuman}}</strong>
+            </div>
+            {{#haszendeskticketid}}
+            <div class="local-zendesk-chat__meta-chip local-zendesk-chat__meta-chip--ticket">
+                <span>{{requestnumberlabel}}</span>
+                <strong>#{{zendeskticketid}}</strong>
+            </div>
+            {{/haszendeskticketid}}
+        </div>
 
-                {{#haszendeskticketid}}
-                <dt class="col-sm-3">{{requestnumberlabel}}</dt>
-                <dd class="col-sm-9">{{zendeskticketid}}</dd>
-                {{/haszendeskticketid}}
-            </dl>
+        {{#haserror}}
+        <div class="alert alert-warning local-zendesk-chat__warning">{{submissionerror}}</div>
+        {{/haserror}}
+    </section>
 
-            {{#haserror}}
-            <div class="alert alert-warning">{{submissionerror}}</div>
-            {{/haserror}}
+    <section class="local-zendesk-chat__thread-card">
+        <div class="local-zendesk-chat__thread-head">
+            <div>
+                <div class="local-zendesk-chat__thread-eyebrow">{{messageheading}}</div>
+                <h3 class="local-zendesk-chat__thread-title">{{repliesheading}}</h3>
+            </div>
+            <span class="local-zendesk-chat__thread-status {{statusclass}}">{{statuslabel}}</span>
+        </div>
 
+        <div class="local-zendesk-chat__messages">
             {{#hasbodyhtml}}
-            <h5 class="mt-4">{{messageheading}}</h5>
-            <div class="border rounded p-3 mt-3">
-                {{{bodyhtml}}}
-            </div>
+            <article class="local-zendesk-chat__message local-zendesk-chat__message--student local-zendesk-chat__message--origin">
+                <div class="local-zendesk-chat__message-meta">
+                    <span class="local-zendesk-chat__avatar local-zendesk-chat__avatar--student">{{messageauthorinitial}}</span>
+                    <span class="local-zendesk-chat__author">{{messageauthorlabel}}</span>
+                    <span class="local-zendesk-chat__timestamp">{{timecreatedhuman}}</span>
+                </div>
+                <div class="local-zendesk-chat__bubble local-zendesk-chat__bubble--student">
+                    {{{bodyhtml}}}
+                </div>
+            </article>
             {{/hasbodyhtml}}
-
-            <h5 class="mt-4">{{repliesheading}}</h5>
 
             {{#haspublicreplies}}
             {{#publicreplies}}
-            <div class="border rounded p-3 mt-3">
-                <div class="d-flex justify-content-between align-items-start flex-wrap mb-2">
-                    <strong>{{authorlabel}}</strong>
-                    <span class="text-muted small">{{createdhuman}}</span>
+            <article class="local-zendesk-chat__message {{messageclass}}">
+                <div class="local-zendesk-chat__message-meta">
+                    <span class="local-zendesk-chat__avatar {{avatarclass}}">{{authorinitial}}</span>
+                    <span class="local-zendesk-chat__author">{{authorlabel}}</span>
+                    <span class="local-zendesk-chat__timestamp">{{createdhuman}}</span>
                 </div>
-                {{{bodyhtml}}}
-            </div>
+                <div class="local-zendesk-chat__bubble {{bubbleclass}}">
+                    {{{bodyhtml}}}
+                </div>
+            </article>
             {{/publicreplies}}
             {{/haspublicreplies}}
 
             {{#hasreplyloaderror}}
-            <div class="alert alert-warning mt-3">{{replyloaderror}}</div>
+            <div class="alert alert-warning local-zendesk-chat__inline-warning">{{replyloaderror}}</div>
             {{/hasreplyloaderror}}
 
             {{^haspublicreplies}}
             {{^hasreplyloaderror}}
-            <div class="text-muted mt-3">{{norepliesyet}}</div>
+            <div class="local-zendesk-chat__empty-state">{{norepliesyet}}</div>
             {{/hasreplyloaderror}}
             {{/haspublicreplies}}
         </div>
-    </div>
+    </section>
+
+    {{#hasreplyformhtml}}
+    <section class="local-zendesk-chat__composer">
+        <div class="local-zendesk-chat__composer-copy">
+            <div class="local-zendesk-chat__composer-eyebrow">{{replyheading}}</div>
+            <p class="local-zendesk-chat__composer-help">{{replyhelptext}}</p>
+        </div>
+        <div class="local-zendesk-chat__composer-form">
+            {{{replyformhtml}}}
+        </div>
+    </section>
+    {{/hasreplyformhtml}}
 </div>

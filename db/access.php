@@ -39,4 +39,11 @@ $capabilities = [
             'manager' => CAP_ALLOW,
         ],
     ],
+    'local/zendesk:usehelpcenter' => [
+        'captype' => 'read',
+        'contextlevel' => CONTEXT_SYSTEM,
+        'archetypes' => [
+            'user' => CAP_ALLOW,
+        ],
+    ],
 ];

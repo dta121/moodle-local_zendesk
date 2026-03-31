@@ -16,9 +16,26 @@
 
 defined('MOODLE_INTERNAL') || die();
 
-$plugin->component = 'local_zendesk';
-$plugin->version = 2026033101;
-$plugin->requires = 2022112800;
-$plugin->supported = [401, 405];
-$plugin->maturity = MATURITY_ALPHA;
-$plugin->release = '0.1.0';
+$functions = [
+    'local_zendesk_get_agent_context' => [
+        'classname' => 'local_zendesk\external\get_agent_context',
+        'methodname' => 'execute',
+        'description' => 'Return Moodle agent context for a Zendesk requester.',
+        'type' => 'read',
+        'capabilities' => 'local/zendesk:viewallrequests',
+        'ajax' => false,
+    ],
+];
+
+$services = [
+    'local_zendesk_agent_context_service' => [
+        'functions' => [
+            'local_zendesk_get_agent_context',
+        ],
+        'restrictedusers' => 1,
+        'enabled' => 1,
+        'shortname' => 'local_zendesk_agent_context_service',
+        'downloadfiles' => 0,
+        'uploadfiles' => 0,
+    ],
+];

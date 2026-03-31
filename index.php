@@ -16,6 +16,7 @@
 
 require_once(__DIR__ . '/../../config.php');
 
+use local_zendesk\local\service\jwt_sso_service;
 use local_zendesk\local\service\zendesk_service;
 
 require_login();
@@ -33,6 +34,10 @@ $PAGE->set_title(get_string('pluginname', 'local_zendesk'));
 $PAGE->set_heading(get_string('requestlistheading', 'local_zendesk'));
 
 $requests = $service->get_user_requests($USER->id, 20);
+$ssoservice = new jwt_sso_service();
+$hashelpcenterlink = has_capability('local/zendesk:usehelpcenter', $context)
+    && $ssoservice->is_enabled()
+    && $ssoservice->is_configured();
 $notification = '';
 if (!$service->is_enabled()) {
     $notification = get_string('zendeskdisabled', 'local_zendesk');
@@ -43,6 +48,9 @@ if (!$service->is_enabled()) {
 $templatecontext = [
     'newrequesturl' => (new moodle_url('/local/zendesk/request.php'))->out(false),
     'newrequestlabel' => get_string('newrequest', 'local_zendesk'),
+    'hashelpcenterlink' => $hashelpcenterlink,
+    'helpcenterurl' => (new moodle_url('/local/zendesk/sso.php', ['target' => 'requests']))->out(false),
+    'helpcenterlabel' => $ssoservice->get_button_label(),
     'createdlabel' => get_string('createdlabel', 'local_zendesk'),
     'updatedlabel' => get_string('updatedlabel', 'local_zendesk'),
     'emptylabel' => get_string('norequests', 'local_zendesk'),

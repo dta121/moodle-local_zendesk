@@ -1,0 +1,19 @@
+<div class="local-zendesk-sso-redirect text-center py-4">
+    <h2 class="h4 mb-3">{{heading}}</h2>
+    <p class="text-muted mb-4">{{body}}</p>
+
+    <form id="{{formid}}" action="{{formaction}}" method="post">
+        <input type="hidden" name="jwt" value="{{jwt}}">
+        {{#hasreturnto}}
+        <input type="hidden" name="return_to" value="{{returnto}}">
+        {{/hasreturnto}}
+
+        <noscript>
+            <button type="submit" class="btn btn-primary">{{submitlabel}}</button>
+        </noscript>
+    </form>
+</div>
+
+{{#js}}
+document.getElementById('{{formid}}').submit();
+{{/js}}

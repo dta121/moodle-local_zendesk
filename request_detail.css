@@ -1,0 +1,539 @@
+.local-zendesk-chat {
+    --local-zendesk-ink: #183046;
+    --local-zendesk-muted: #5f7287;
+    --local-zendesk-line: rgba(24, 48, 70, 0.12);
+    --local-zendesk-panel: rgba(255, 255, 255, 0.92);
+    --local-zendesk-thread: #f8fbff;
+    --local-zendesk-student-start: #1177ff;
+    --local-zendesk-student-end: #4ca3ff;
+    --local-zendesk-support-bg: #ffffff;
+    max-width: 100%;
+    margin: 0 auto 2rem;
+    padding: 1.25rem;
+    border-radius: 1rem;
+    background:
+        radial-gradient(circle at top left, rgba(97, 191, 255, 0.2), transparent 28rem),
+        radial-gradient(circle at bottom right, rgba(124, 220, 167, 0.22), transparent 24rem),
+        linear-gradient(180deg, #edf5ff 0%, #eff8f2 100%);
+    box-shadow: 0 28px 60px rgba(14, 38, 59, 0.12);
+}
+
+.local-zendesk-chat__hero,
+.local-zendesk-chat__thread-card,
+.local-zendesk-chat__composer {
+    border: 1px solid var(--local-zendesk-line);
+    border-radius: 1rem;
+    background: var(--local-zendesk-panel);
+    box-shadow: 0 18px 40px rgba(23, 44, 67, 0.08);
+}
+
+.local-zendesk-chat__hero {
+    padding: 1.25rem;
+}
+
+.local-zendesk-chat__toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    margin-bottom: 1.25rem;
+}
+
+.local-zendesk-chat__toolbar-actions {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+}
+
+.local-zendesk-chat__back {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    padding: 0.75rem 1rem;
+    border-radius: 1rem;
+    background: rgba(255, 255, 255, 0.88);
+    border: 1px solid rgba(24, 48, 70, 0.1);
+    color: var(--local-zendesk-ink);
+    font-weight: 600;
+    text-decoration: none;
+    box-shadow: 0 10px 20px rgba(23, 44, 67, 0.06);
+}
+
+.local-zendesk-chat__back:hover,
+.local-zendesk-chat__back:focus {
+    color: var(--local-zendesk-ink);
+    text-decoration: none;
+    transform: translateY(-1px);
+}
+
+.local-zendesk-chat__helpcenter {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0.72rem 1rem;
+    border-radius: 1rem;
+    border: 1px solid rgba(24, 48, 70, 0.12);
+    background: rgba(255, 255, 255, 0.88);
+    color: var(--local-zendesk-ink);
+    font-weight: 700;
+    text-decoration: none;
+    box-shadow: 0 10px 20px rgba(23, 44, 67, 0.05);
+}
+
+.local-zendesk-chat__helpcenter:hover,
+.local-zendesk-chat__helpcenter:focus {
+    color: var(--local-zendesk-ink);
+    text-decoration: none;
+    transform: translateY(-1px);
+}
+
+.local-zendesk-chat__status.badge,
+.local-zendesk-chat__thread-status.badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0.7rem 1rem;
+    border-radius: 1rem;
+    font-size: 0.82rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.35);
+}
+
+.local-zendesk-chat__status.badge-success,
+.local-zendesk-chat__thread-status.badge-success {
+    background: #daf7e8;
+    color: #0c6b43;
+}
+
+.local-zendesk-chat__status.badge-warning,
+.local-zendesk-chat__thread-status.badge-warning {
+    background: #fff2cc;
+    color: #8b6200;
+}
+
+.local-zendesk-chat__status.badge-info,
+.local-zendesk-chat__thread-status.badge-info {
+    background: #dcecff;
+    color: #175db2;
+}
+
+.local-zendesk-chat__status.badge-danger,
+.local-zendesk-chat__thread-status.badge-danger {
+    background: #ffe2e2;
+    color: #af3131;
+}
+
+.local-zendesk-chat__status.badge-secondary,
+.local-zendesk-chat__thread-status.badge-secondary {
+    background: #e9eef5;
+    color: #4f6173;
+}
+
+.local-zendesk-chat__hero-main {
+    display: flex;
+    align-items: flex-start;
+    gap: 1rem;
+}
+
+.local-zendesk-chat__hero-avatar {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 3.3rem;
+    height: 3.3rem;
+    flex: 0 0 3.3rem;
+    border-radius: 1rem;
+    background: linear-gradient(145deg, #0f7cff 0%, #59aefe 100%);
+    color: #ffffff;
+    font-size: 0.95rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    box-shadow: 0 12px 28px rgba(17, 119, 255, 0.28);
+}
+
+.local-zendesk-chat__hero-copy {
+    min-width: 0;
+}
+
+.local-zendesk-chat__eyebrow,
+.local-zendesk-chat__thread-eyebrow,
+.local-zendesk-chat__composer-eyebrow {
+    margin-bottom: 0.35rem;
+    color: #4f8bc8;
+    font-size: 0.78rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+.local-zendesk-chat__title,
+.local-zendesk-chat__thread-title {
+    margin: 0;
+    color: var(--local-zendesk-ink);
+    font-size: clamp(1.4rem, 2vw, 2rem);
+    font-weight: 700;
+    line-height: 1.18;
+}
+
+.local-zendesk-chat__subtitle,
+.local-zendesk-chat__composer-help {
+    margin: 0.35rem 0 0;
+    color: var(--local-zendesk-muted);
+    line-height: 1.55;
+}
+
+.local-zendesk-chat__context {
+    margin-top: 0.85rem;
+    color: var(--local-zendesk-ink);
+    font-weight: 600;
+}
+
+.local-zendesk-chat__meta {
+    display: grid;
+    gap: 0.75rem;
+    margin-top: 1.2rem;
+    width: 100%;
+}
+
+.local-zendesk-chat__meta--has-ticket {
+    grid-template-columns: minmax(0, 1.3fr) minmax(0, 1.3fr) minmax(0, 0.85fr);
+}
+
+.local-zendesk-chat__meta--two-up {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.local-zendesk-chat__meta-chip {
+    min-width: 0;
+    width: 100%;
+    padding: 0.9rem 1rem;
+    border-radius: 1rem;
+    background: rgba(255, 255, 255, 0.72);
+    border: 1px solid rgba(24, 48, 70, 0.08);
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+}
+
+.local-zendesk-chat__meta-chip span {
+    display: block;
+    margin-bottom: 0.2rem;
+    color: var(--local-zendesk-muted);
+    font-size: 0.78rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.local-zendesk-chat__meta-chip strong {
+    color: var(--local-zendesk-ink);
+    font-size: 0.98rem;
+}
+
+.local-zendesk-chat__meta-chip--ticket strong {
+    font-size: 0.92rem;
+}
+
+.local-zendesk-chat__warning {
+    margin-top: 1rem;
+    border-radius: 1rem;
+}
+
+.local-zendesk-chat__thread-card {
+    margin-top: 1.35rem;
+    overflow: hidden;
+}
+
+.local-zendesk-chat__thread-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 1.2rem 1.25rem 0;
+}
+
+.local-zendesk-chat__messages {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    padding: 1.25rem;
+    background:
+        radial-gradient(circle at 1px 1px, rgba(24, 48, 70, 0.05) 1px, transparent 0) 0 0 / 18px 18px,
+        linear-gradient(180deg, rgba(248, 251, 255, 0.98) 0%, rgba(241, 247, 252, 0.98) 100%);
+}
+
+.local-zendesk-chat__message {
+    display: flex;
+    flex-direction: column;
+    max-width: min(42rem, 92%);
+}
+
+.local-zendesk-chat__message--student {
+    margin-left: auto;
+    align-items: flex-end;
+}
+
+.local-zendesk-chat__message--student .local-zendesk-chat__message-meta {
+    flex-direction: row-reverse;
+}
+
+.local-zendesk-chat__message--support {
+    margin-right: auto;
+    align-items: flex-start;
+}
+
+.local-zendesk-chat__message-meta {
+    display: flex;
+    align-items: center;
+    gap: 0.55rem;
+    margin-bottom: 0.45rem;
+    color: var(--local-zendesk-muted);
+    font-size: 0.82rem;
+}
+
+.local-zendesk-chat__avatar {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2rem;
+    height: 2rem;
+    border-radius: 999px;
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+}
+
+.local-zendesk-chat__avatar--student {
+    background: rgba(17, 119, 255, 0.14);
+    color: #0f63d9;
+}
+
+.local-zendesk-chat__avatar--support {
+    background: rgba(24, 48, 70, 0.08);
+    color: #324a61;
+}
+
+.local-zendesk-chat__author {
+    color: var(--local-zendesk-ink);
+    font-weight: 700;
+}
+
+.local-zendesk-chat__bubble {
+    padding: 0.95rem 1.1rem;
+    border-radius: 1.05rem;
+    box-shadow: 0 12px 26px rgba(23, 44, 67, 0.08);
+    line-height: 1.65;
+    word-break: break-word;
+}
+
+.local-zendesk-chat__bubble--student {
+    background: linear-gradient(135deg, var(--local-zendesk-student-start) 0%, var(--local-zendesk-student-end) 100%);
+    color: #ffffff;
+    border-bottom-right-radius: 0.2rem;
+}
+
+.local-zendesk-chat__bubble--support {
+    background: var(--local-zendesk-support-bg);
+    color: var(--local-zendesk-ink);
+    border: 1px solid rgba(24, 48, 70, 0.08);
+    border-bottom-left-radius: 0.2rem;
+}
+
+.local-zendesk-chat__bubble p,
+.local-zendesk-chat__bubble ul,
+.local-zendesk-chat__bubble ol {
+    margin-bottom: 0.65rem;
+}
+
+.local-zendesk-chat__bubble p:last-child,
+.local-zendesk-chat__bubble ul:last-child,
+.local-zendesk-chat__bubble ol:last-child {
+    margin-bottom: 0;
+}
+
+.local-zendesk-chat__empty-state,
+.local-zendesk-chat__inline-warning {
+    padding: 1rem 1.1rem;
+    border-radius: 1rem;
+}
+
+.local-zendesk-chat__empty-state {
+    max-width: 24rem;
+    color: var(--local-zendesk-muted);
+    background: rgba(255, 255, 255, 0.8);
+    border: 1px dashed rgba(24, 48, 70, 0.14);
+}
+
+.local-zendesk-chat__inline-warning {
+    margin-bottom: 0;
+}
+
+.local-zendesk-chat__composer {
+    margin-top: 1.35rem;
+    padding: 1.25rem;
+}
+
+.local-zendesk-chat__composer-form {
+    margin-top: 1rem;
+}
+
+.local-zendesk-chat__composer-form form,
+.local-zendesk-chat__composer-form fieldset {
+    margin: 0;
+}
+
+.local-zendesk-chat__composer-form fieldset {
+    min-width: 0;
+    padding: 0;
+    border: 0;
+}
+
+.local-zendesk-chat__composer-form .mform,
+.local-zendesk-chat__composer-form .fcontainer,
+.local-zendesk-chat__composer-form .fitem,
+.local-zendesk-chat__composer-form .form-group,
+.local-zendesk-chat__composer-form .felement {
+    width: 100%;
+}
+
+.local-zendesk-chat__composer-form .row,
+.local-zendesk-chat__composer-form .fitem .row {
+    margin-right: 0;
+    margin-left: 0;
+}
+
+.local-zendesk-chat__composer-form .fitem > [class*="col-"],
+.local-zendesk-chat__composer-form .form-group > [class*="col-"],
+.local-zendesk-chat__composer-form .form-inline {
+    flex: 0 0 100%;
+    width: 100%;
+    max-width: 100%;
+}
+
+.local-zendesk-chat__composer-form .fitem,
+.local-zendesk-chat__composer-form .form-group {
+    margin-bottom: 0.85rem;
+}
+
+.local-zendesk-chat__composer-form .fitemtitle,
+.local-zendesk-chat__composer-form .col-form-label,
+.local-zendesk-chat__composer-form label[for="id_replymessage"] {
+    display: none;
+}
+
+.local-zendesk-chat__composer-form textarea[name="replymessage"] {
+    width: 100%;
+    max-width: 100%;
+    display: block;
+    min-height: 7rem;
+    padding: 1rem 1.1rem;
+    border: 1px solid rgba(24, 48, 70, 0.12);
+    border-radius: 1rem;
+    background: #f8fbff;
+    color: var(--local-zendesk-ink);
+    font-size: 1rem;
+    line-height: 1.6;
+    resize: vertical;
+    box-shadow: inset 0 1px 3px rgba(23, 44, 67, 0.05);
+}
+
+.local-zendesk-chat__composer-form textarea[name="replymessage"]:focus {
+    outline: 0;
+    border-color: rgba(17, 119, 255, 0.42);
+    box-shadow: 0 0 0 0.28rem rgba(17, 119, 255, 0.12);
+}
+
+.local-zendesk-chat__composer-form .fitem_actionbuttons,
+.local-zendesk-chat__composer-form .form-group:last-child {
+    display: flex;
+    justify-content: flex-end;
+    align-items: flex-start;
+    margin-bottom: 0;
+    margin-top: -0.3rem;
+    width: 100%;
+}
+
+.local-zendesk-chat__composer-form .fitem_actionbuttons > [class*="col-"],
+.local-zendesk-chat__composer-form .form-group:last-child > [class*="col-"],
+.local-zendesk-chat__composer-form .fitem_actionbuttons .felement,
+.local-zendesk-chat__composer-form .form-group:last-child .felement {
+    display: flex;
+    justify-content: flex-end;
+    width: 100%;
+    max-width: 100%;
+    padding-right: 0;
+    padding-left: 0;
+}
+
+.local-zendesk-chat__composer-form input[type="submit"],
+.local-zendesk-chat__composer-form .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 0;
+    width: auto;
+    padding: 0.78rem 1.1rem;
+    border: 1px solid rgba(14, 82, 175, 0.24);
+    border-radius: 1rem;
+    background: linear-gradient(180deg, #1782ff 0%, #0f70e8 100%);
+    color: #ffffff;
+    font-weight: 700;
+    letter-spacing: 0.01em;
+    box-shadow: 0 10px 22px rgba(17, 119, 255, 0.2);
+}
+
+.local-zendesk-chat__composer-form input[type="submit"]:hover,
+.local-zendesk-chat__composer-form input[type="submit"]:focus,
+.local-zendesk-chat__composer-form .btn:hover,
+.local-zendesk-chat__composer-form .btn:focus {
+    color: #ffffff;
+    transform: translateY(-1px);
+}
+
+@media (max-width: 767.98px) {
+    .local-zendesk-chat {
+        padding: 0.9rem;
+        border-radius: 1rem;
+    }
+
+    .local-zendesk-chat__hero,
+    .local-zendesk-chat__thread-card,
+    .local-zendesk-chat__composer {
+        border-radius: 1rem;
+    }
+
+    .local-zendesk-chat__toolbar,
+    .local-zendesk-chat__thread-head,
+    .local-zendesk-chat__hero-main {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .local-zendesk-chat__toolbar-actions {
+        width: 100%;
+        justify-content: flex-start;
+    }
+
+    .local-zendesk-chat__messages {
+        padding: 1rem;
+    }
+
+    .local-zendesk-chat__meta,
+    .local-zendesk-chat__meta--has-ticket,
+    .local-zendesk-chat__meta--two-up {
+        grid-template-columns: 1fr;
+    }
+
+    .local-zendesk-chat__message {
+        max-width: 100%;
+    }
+
+    .local-zendesk-chat__composer-form input[type="submit"],
+    .local-zendesk-chat__composer-form .btn {
+        width: 100%;
+        min-width: 0;
+    }
+}

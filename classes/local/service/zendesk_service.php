@@ -263,25 +263,35 @@ final class zendesk_service {
      */
     public function get_request_for_user(int $ticketid, int $userid, bool $canviewall = false): array {
         $record = $this->repository->get_ticket($ticketid);
-        if (!$canviewall && (int) $record->userid !== $userid) {
-            throw new \required_capability_exception(
-                \context_system::instance(),
-                'local/zendesk:viewallrequests',
-                'nopermissions',
-                ''
-            );
-        }
+        $this->assert_ticket_access($record, $userid, $canviewall);
 
         $ticket = $this->format_ticket_for_output($record, true);
         $ticket['messageheading'] = get_string('messageheading', constants::COMPONENT);
-        $ticket['repliesheading'] = get_string('repliesheading', constants::COMPONENT);
+        $ticket['repliesheading'] = get_string('conversationheading', constants::COMPONENT);
         $ticket['norepliesyet'] = get_string('norepliesyet', constants::COMPONENT);
         $ticket['publicreplies'] = [];
         $ticket['haspublicreplies'] = false;
         $ticket['hasreplyloaderror'] = false;
+        $ticket['hasreplyform'] = false;
+        $ticket['replyheading'] = '';
+        $ticket['replyhelptext'] = '';
+        $ticket['replyactionlabel'] = '';
 
         if (empty($record->zendesk_ticket_id) || !$this->is_enabled() || !$this->is_configured()) {
             return $ticket;
+        }
+
+        if ($this->can_reply_and_reopen($record)) {
+            $ticket['hasreplyform'] = true;
+            if (strtolower((string) $record->status) === 'closed') {
+                $ticket['replyheading'] = get_string('replyfollowupheading', constants::COMPONENT);
+                $ticket['replyhelptext'] = get_string('replyfollowuphelp', constants::COMPONENT);
+                $ticket['replyactionlabel'] = get_string('replyfollowupbutton', constants::COMPONENT);
+            } else {
+                $ticket['replyheading'] = get_string('replyreopenheading', constants::COMPONENT);
+                $ticket['replyhelptext'] = get_string('replyreopenhelp', constants::COMPONENT);
+                $ticket['replyactionlabel'] = get_string('replyreopenbutton', constants::COMPONENT);
+            }
         }
 
         try {
@@ -295,6 +305,70 @@ final class zendesk_service {
         }
 
         return $ticket;
+    }
+
+    /**
+     * Reply to a solved or closed ticket.
+     *
+     * @param int $ticketid Local ticket id.
+     * @param int $userid Moodle user id.
+     * @param string $message Reply text.
+     * @param bool $canviewall Whether current user can see any ticket.
+     * @return \stdClass
+     */
+    public function reply_to_request(int $ticketid, int $userid, string $message, bool $canviewall = false): \stdClass {
+        global $DB;
+
+        $this->assert_ready();
+        if (!has_capability('local/zendesk:submitrequest', \context_system::instance())) {
+            throw new \required_capability_exception(
+                \context_system::instance(),
+                'local/zendesk:submitrequest',
+                'nopermissions',
+                ''
+            );
+        }
+
+        $message = trim($message);
+        if ($message === '') {
+            throw new \moodle_exception('replyrequired', constants::COMPONENT);
+        }
+
+        $record = $this->repository->get_ticket($ticketid);
+        $this->assert_ticket_access($record, $userid, $canviewall);
+
+        if (empty($record->zendesk_ticket_id)) {
+            throw new \moodle_exception('replynotavailable', constants::COMPONENT);
+        }
+
+        $user = $DB->get_record('user', ['id' => $userid, 'deleted' => 0], '*', MUST_EXIST);
+        $usermap = $this->ensure_remote_user($user);
+        $remoteticket = $this->get_ticket_by_id((int) $record->zendesk_ticket_id);
+        $record = $this->repository->attach_remote_ticket((int) $record->id, $remoteticket);
+
+        $status = strtolower((string) ($record->status ?? ''));
+        if ($status === 'closed') {
+            return $this->create_followup_reply($record, $user, $usermap, $message);
+        }
+
+        if ($status !== 'solved') {
+            throw new \moodle_exception('replynotallowed', constants::COMPONENT);
+        }
+
+        $response = $this->request('PUT', '/tickets/' . (int) $record->zendesk_ticket_id . '.json', [
+            'ticket' => [
+                'status' => 'open',
+                'comment' => $this->build_public_comment_payload($message, (int) $usermap->zendesk_user_id),
+            ],
+        ]);
+        $updatedticket = $this->extract_remote_ticket($response['body']);
+        $updatedlocalticket = $this->repository->attach_remote_ticket((int) $record->id, $updatedticket);
+
+        return (object) [
+            'localticketid' => (int) $updatedlocalticket->id,
+            'action' => 'reopened',
+            'pendingconfirmation' => false,
+        ];
     }
 
     /**
@@ -361,6 +435,21 @@ final class zendesk_service {
     }
 
     /**
+     * Fetch a single ticket from Zendesk.
+     *
+     * @param int $zendeskticketid Zendesk ticket id.
+     * @return \stdClass
+     */
+    private function get_ticket_by_id(int $zendeskticketid): \stdClass {
+        $response = $this->request('GET', '/tickets/' . $zendeskticketid . '.json');
+        if (empty($response['body']['ticket']) || !is_array($response['body']['ticket'])) {
+            throw new \moodle_exception('invalidapiresponse', constants::COMPONENT);
+        }
+
+        return $this->normalise_remote_ticket($response['body']['ticket']);
+    }
+
+    /**
      * Fetch public Zendesk replies for a ticket.
      *
      * @param int $zendeskticketid Zendesk ticket id.
@@ -374,15 +463,14 @@ final class zendesk_service {
         ]);
 
         $replies = [];
+        $hiderequesteropeningcomment = true;
         foreach ($response['body']['comments'] ?? [] as $comment) {
             if (empty($comment['public'])) {
                 continue;
             }
 
             $authorid = !empty($comment['author_id']) ? (int) $comment['author_id'] : 0;
-            if ($requesterzendeskuserid > 0 && $authorid === $requesterzendeskuserid) {
-                continue;
-            }
+            $isrequester = $requesterzendeskuserid > 0 && $authorid === $requesterzendeskuserid;
 
             $plainbody = trim((string) ($comment['plain_body'] ?? $comment['body'] ?? ''));
             if ($plainbody === '' && !empty($comment['html_body'])) {
@@ -392,9 +480,29 @@ final class zendesk_service {
                 continue;
             }
 
+            if ($isrequester && $hiderequesteropeningcomment) {
+                $hiderequesteropeningcomment = false;
+                continue;
+            }
+
             $createdat = !empty($comment['created_at']) ? strtotime((string) $comment['created_at']) : 0;
+            $authorlabel = $isrequester
+                ? get_string('studentreplyauthor', constants::COMPONENT)
+                : get_string('supportreplyauthor', constants::COMPONENT);
             $replies[] = [
-                'authorlabel' => get_string('supportreplyauthor', constants::COMPONENT),
+                'authorlabel' => $authorlabel,
+                'authorinitial' => $isrequester
+                    ? get_string('studentreplyinitial', constants::COMPONENT)
+                    : get_string('supportreplyinitial', constants::COMPONENT),
+                'messageclass' => $isrequester
+                    ? 'local-zendesk-chat__message--student'
+                    : 'local-zendesk-chat__message--support',
+                'bubbleclass' => $isrequester
+                    ? 'local-zendesk-chat__bubble--student'
+                    : 'local-zendesk-chat__bubble--support',
+                'avatarclass' => $isrequester
+                    ? 'local-zendesk-chat__avatar--student'
+                    : 'local-zendesk-chat__avatar--support',
                 'createdhuman' => $createdat ? userdate($createdat) : '',
                 'bodyhtml' => format_text($plainbody, FORMAT_PLAIN),
             ];
@@ -470,6 +578,7 @@ final class zendesk_service {
             'statuslabel' => $statuslabel,
             'statusclass' => $this->get_status_badge_class($ticket),
             'syncstate' => $ticket->syncstate,
+            'statusraw' => strtolower((string) ($ticket->status ?? '')),
             'bodyexcerpt' => shorten_text($ticket->body, 140),
             'bodyhtml' => $includedetail ? $bodyhtml : '',
             'hasbodyhtml' => $includedetail,
@@ -516,6 +625,20 @@ final class zendesk_service {
     }
 
     /**
+     * Determine whether a ticket should display the reply/reopen form.
+     *
+     * @param \stdClass $ticket Ticket record.
+     * @return bool
+     */
+    private function can_reply_and_reopen(\stdClass $ticket): bool {
+        if (empty($ticket->zendesk_ticket_id)) {
+            return false;
+        }
+
+        return in_array(strtolower((string) ($ticket->status ?? '')), ['solved', 'closed'], true);
+    }
+
+    /**
      * Map a ticket to a badge class.
      *
      * @param \stdClass $ticket Ticket record.
@@ -541,6 +664,25 @@ final class zendesk_service {
                 return 'badge badge-info';
             default:
                 return 'badge badge-secondary';
+        }
+    }
+
+    /**
+     * Verify the current user can act on the requested ticket.
+     *
+     * @param \stdClass $ticket Ticket record.
+     * @param int $userid Moodle user id.
+     * @param bool $canviewall Whether current user can see any ticket.
+     * @return void
+     */
+    private function assert_ticket_access(\stdClass $ticket, int $userid, bool $canviewall): void {
+        if (!$canviewall && (int) $ticket->userid !== $userid) {
+            throw new \required_capability_exception(
+                \context_system::instance(),
+                'local/zendesk:viewallrequests',
+                'nopermissions',
+                ''
+            );
         }
     }
 
@@ -713,6 +855,82 @@ final class zendesk_service {
      */
     private function build_ticket_external_id(string $uuid): string {
         return 'mdl:' . $this->get_instance_uuid() . ':ticket:' . $uuid;
+    }
+
+    /**
+     * Build a public comment payload.
+     *
+     * @param string $message Comment text.
+     * @param int $authorid Zendesk author id.
+     * @return array
+     */
+    private function build_public_comment_payload(string $message, int $authorid): array {
+        $comment = [
+            'body' => trim($message),
+            'public' => true,
+        ];
+
+        if ($authorid > 0) {
+            $comment['author_id'] = $authorid;
+        }
+
+        return $comment;
+    }
+
+    /**
+     * Create a follow-up ticket for a closed Zendesk ticket.
+     *
+     * @param \stdClass $record Local ticket record.
+     * @param \stdClass $user Moodle user record.
+     * @param \stdClass $usermap Zendesk user map record.
+     * @param string $message Reply text.
+     * @return \stdClass
+     */
+    private function create_followup_reply(\stdClass $record, \stdClass $user, \stdClass $usermap, string $message): \stdClass {
+        $uuid = $this->generate_uuid();
+        $ticketexternalid = $this->build_ticket_external_id($uuid);
+        $localticket = $this->repository->create_local_ticket(
+            (int) $record->userid,
+            (int) $usermap->id,
+            !empty($record->courseid) ? (int) $record->courseid : null,
+            !empty($record->contextid) ? (int) $record->contextid : null,
+            $uuid,
+            $ticketexternalid,
+            (string) $record->subject,
+            $message
+        );
+        $ticketpayload = $this->build_ticket_payload($user, [
+            'subject' => (string) $record->subject,
+            'details' => $message,
+            'courseid' => !empty($record->courseid) ? (int) $record->courseid : 0,
+        ], $ticketexternalid);
+        $ticketpayload['via_followup_source_id'] = (int) $record->zendesk_ticket_id;
+        $ticketpayload['comment'] = $this->build_public_comment_payload($message, (int) $usermap->zendesk_user_id);
+
+        try {
+            $response = $this->request('POST', '/tickets.json', [
+                'ticket' => $ticketpayload,
+            ]);
+            $remoteticket = $this->extract_remote_ticket($response['body']);
+            $localticket = $this->repository->mark_ticket_created((int) $localticket->id, $remoteticket);
+
+            return (object) [
+                'localticketid' => (int) $localticket->id,
+                'action' => 'followup',
+                'pendingconfirmation' => false,
+            ];
+        } catch (\RuntimeException $e) {
+            $localticket = $this->repository->mark_ticket_confirming((int) $localticket->id, $e->getMessage());
+
+            return (object) [
+                'localticketid' => (int) $localticket->id,
+                'action' => 'followup',
+                'pendingconfirmation' => true,
+            ];
+        } catch (\Throwable $e) {
+            $this->repository->mark_ticket_error((int) $localticket->id, $e->getMessage());
+            throw $e;
+        }
     }
 
     /**
