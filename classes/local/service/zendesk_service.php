@@ -499,15 +499,9 @@ final class zendesk_service {
         int $zendeskticketid,
         int $requesterzendeskuserid = 0
     ): array {
-        $response = $this->request('GET', '/tickets/' . $zendeskticketid . '/comments.json', null, [
-            'sort_order' => 'asc',
-            'per_page' => 100,
-            'include_inline_images' => 'true',
-        ]);
-
         $replies = [];
         $hiderequesteropeningcomment = true;
-        foreach ($response['body']['comments'] ?? [] as $comment) {
+        foreach ($this->get_ticket_comments($zendeskticketid) as $comment) {
             if (empty($comment['public'])) {
                 continue;
             }
@@ -552,6 +546,55 @@ final class zendesk_service {
         }
 
         return $replies;
+    }
+
+    /**
+     * Fetch Zendesk ticket comments with inline image metadata.
+     *
+     * @param int $zendeskticketid Zendesk ticket id.
+     * @return array
+     */
+    private function get_ticket_comments(int $zendeskticketid): array {
+        $config = $this->get_config();
+        $subdomain = $this->normalise_subdomain($config->subdomain);
+        $url = 'https://' . $subdomain . '.zendesk.com/api/v2/tickets/' . $zendeskticketid .
+            '/comments.json?sort_order=asc&per_page=100&include_inline_images=true';
+
+        $ch = curl_init($url);
+        if ($ch === false) {
+            throw new \RuntimeException('Unable to initialise cURL.');
+        }
+
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+        curl_setopt($ch, CURLOPT_HTTPAUTH, CURLAUTH_BASIC);
+        curl_setopt($ch, CURLOPT_USERPWD, $config->serviceemail . '/token:' . $config->apitoken);
+        curl_setopt($ch, CURLOPT_TIMEOUT, 20);
+        curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 10);
+
+        $rawbody = curl_exec($ch);
+        if ($rawbody === false) {
+            $error = curl_error($ch);
+            curl_close($ch);
+            throw new \RuntimeException($error ?: 'Zendesk comment request failed.');
+        }
+
+        $status = (int) curl_getinfo($ch, CURLINFO_RESPONSE_CODE);
+        curl_close($ch);
+
+        $decoded = [];
+        if ($rawbody !== '') {
+            $decoded = json_decode($rawbody, true);
+            if ($decoded === null && json_last_error() !== JSON_ERROR_NONE) {
+                throw new \moodle_exception('invalidapiresponse', constants::COMPONENT);
+            }
+        }
+
+        if ($status >= 400) {
+            $message = $this->extract_api_error_message($decoded, $status);
+            throw new \moodle_exception('apifailure', constants::COMPONENT, '', null, $message);
+        }
+
+        return $decoded['comments'] ?? [];
     }
 
     /**
