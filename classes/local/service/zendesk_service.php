@@ -302,7 +302,11 @@ final class zendesk_service {
         try {
             $usermap = $this->repository->get_user_map_by_id((int) $record->usermapid);
             $requesterzendeskuserid = !empty($usermap->zendesk_user_id) ? (int) $usermap->zendesk_user_id : 0;
-            $ticket['publicreplies'] = $this->get_public_replies((int) $record->zendesk_ticket_id, $requesterzendeskuserid);
+            $ticket['publicreplies'] = $this->get_public_replies(
+                (int) $record->id,
+                (int) $record->zendesk_ticket_id,
+                $requesterzendeskuserid
+            );
             $ticket['haspublicreplies'] = !empty($ticket['publicreplies']);
         } catch (\Throwable $e) {
             $ticket['hasreplyloaderror'] = true;
@@ -374,6 +378,34 @@ final class zendesk_service {
             'action' => $replyaction,
             'pendingconfirmation' => false,
         ];
+    }
+
+    /**
+     * Fetch a Zendesk attachment response for an authorised Moodle user.
+     *
+     * @param int $ticketid Local ticket id.
+     * @param int $userid Moodle user id.
+     * @param string $encodedurl Encoded remote asset URL.
+     * @param bool $canviewall Whether current user can see any ticket.
+     * @return array
+     */
+    public function get_attachment_response_for_user(
+        int $ticketid,
+        int $userid,
+        string $encodedurl,
+        bool $canviewall = false
+    ): array {
+        $this->assert_ready();
+
+        $record = $this->repository->get_ticket($ticketid);
+        $this->assert_ticket_access($record, $userid, $canviewall);
+
+        $remoteurl = $this->decode_attachment_url($encodedurl);
+        if ($remoteurl === '' || !$this->is_proxyable_zendesk_url($remoteurl)) {
+            throw new \moodle_exception('invalidattachmenturl', constants::COMPONENT);
+        }
+
+        return $this->download_remote_asset($remoteurl);
     }
 
     /**
@@ -457,14 +489,20 @@ final class zendesk_service {
     /**
      * Fetch public Zendesk replies for a ticket.
      *
+     * @param int $localticketid Local ticket id.
      * @param int $zendeskticketid Zendesk ticket id.
      * @param int $requesterzendeskuserid Zendesk user id for the Moodle requester.
      * @return array
      */
-    private function get_public_replies(int $zendeskticketid, int $requesterzendeskuserid = 0): array {
+    private function get_public_replies(
+        int $localticketid,
+        int $zendeskticketid,
+        int $requesterzendeskuserid = 0
+    ): array {
         $response = $this->request('GET', '/tickets/' . $zendeskticketid . '/comments.json', null, [
             'sort_order' => 'asc',
             'per_page' => 100,
+            'include_inline_images' => 'true',
         ]);
 
         $replies = [];
@@ -476,12 +514,9 @@ final class zendesk_service {
 
             $authorid = !empty($comment['author_id']) ? (int) $comment['author_id'] : 0;
             $isrequester = $requesterzendeskuserid > 0 && $authorid === $requesterzendeskuserid;
-
-            $plainbody = trim((string) ($comment['plain_body'] ?? $comment['body'] ?? ''));
-            if ($plainbody === '' && !empty($comment['html_body'])) {
-                $plainbody = trim(html_entity_decode(strip_tags((string) $comment['html_body'])));
-            }
-            if ($plainbody === '') {
+            $bodyhtml = $this->format_comment_body_html($localticketid, $comment);
+            $attachments = $this->format_comment_attachments($localticketid, $comment);
+            if ($bodyhtml === '' && empty($attachments)) {
                 continue;
             }
 
@@ -509,11 +544,86 @@ final class zendesk_service {
                     ? 'local-zendesk-chat__avatar--student'
                     : 'local-zendesk-chat__avatar--support',
                 'createdhuman' => $createdat ? userdate($createdat) : '',
-                'bodyhtml' => format_text($plainbody, FORMAT_PLAIN),
+                'bodyhtml' => $bodyhtml,
+                'hasbodyhtml' => $bodyhtml !== '',
+                'attachments' => $attachments,
+                'hasattachments' => !empty($attachments),
             ];
         }
 
         return $replies;
+    }
+
+    /**
+     * Format a Zendesk comment body for safe Moodle output.
+     *
+     * @param int $localticketid Local ticket id.
+     * @param array $comment Raw Zendesk comment payload.
+     * @return string
+     */
+    private function format_comment_body_html(int $localticketid, array $comment): string {
+        $htmlbody = trim((string) ($comment['html_body'] ?? ''));
+        if ($htmlbody !== '') {
+            $htmlbody = $this->rewrite_comment_asset_urls($localticketid, $htmlbody);
+            return format_text($htmlbody, FORMAT_HTML, [
+                'trusted' => false,
+                'filter' => true,
+                'para' => false,
+                'newlines' => false,
+            ]);
+        }
+
+        $plainbody = trim((string) ($comment['plain_body'] ?? $comment['body'] ?? ''));
+        if ($plainbody === '') {
+            return '';
+        }
+
+        return format_text($plainbody, FORMAT_PLAIN);
+    }
+
+    /**
+     * Format Zendesk comment attachments for the chat template.
+     *
+     * @param int $localticketid Local ticket id.
+     * @param array $comment Raw Zendesk comment payload.
+     * @return array
+     */
+    private function format_comment_attachments(int $localticketid, array $comment): array {
+        $attachments = [];
+
+        foreach ($comment['attachments'] ?? [] as $attachment) {
+            if (!is_array($attachment) || !empty($attachment['deleted']) || !empty($attachment['inline'])) {
+                continue;
+            }
+
+            $contenturl = trim((string) ($attachment['content_url'] ?? $attachment['mapped_content_url'] ?? ''));
+            if ($contenturl === '') {
+                continue;
+            }
+
+            $previewurl = $contenturl;
+            if (!empty($attachment['thumbnails']) && is_array($attachment['thumbnails'])) {
+                $thumbnail = reset($attachment['thumbnails']);
+                if (is_array($thumbnail) && !empty($thumbnail['content_url'])) {
+                    $previewurl = trim((string) $thumbnail['content_url']);
+                } else if (is_array($thumbnail) && !empty($thumbnail['mapped_content_url'])) {
+                    $previewurl = trim((string) $thumbnail['mapped_content_url']);
+                }
+            }
+
+            $filesize = !empty($attachment['size']) ? (int) $attachment['size'] : 0;
+            $contenttype = strtolower((string) ($attachment['content_type'] ?? ''));
+            $attachments[] = [
+                'filename' => trim((string) ($attachment['file_name'] ?? get_string('attachmentfile', constants::COMPONENT))),
+                'downloadurl' => $this->proxy_or_passthrough_asset_url($localticketid, $contenturl),
+                'previewurl' => $this->proxy_or_passthrough_asset_url($localticketid, $previewurl),
+                'isimage' => str_starts_with($contenttype, 'image/'),
+                'filesizehuman' => $filesize > 0 ? display_size($filesize) : '',
+                'hasfilesize' => $filesize > 0,
+            ];
+        }
+
+        return $attachments;
     }
 
     /**
@@ -657,6 +767,103 @@ final class zendesk_service {
     }
 
     /**
+     * Rewrite Zendesk-hosted asset URLs so Moodle can proxy them securely.
+     *
+     * @param int $localticketid Local ticket id.
+     * @param string $html Raw Zendesk comment HTML.
+     * @return string
+     */
+    private function rewrite_comment_asset_urls(int $localticketid, string $html): string {
+        $rewritten = preg_replace_callback(
+            '/\b(href|src)=(["\'])([^"\']+)\2/i',
+            function(array $matches) use ($localticketid): string {
+                $rawurl = html_entity_decode($matches[3], ENT_QUOTES | ENT_HTML5);
+                $url = $this->proxy_or_passthrough_asset_url($localticketid, $rawurl);
+                return $matches[1] . '=' . $matches[2] . s($url) . $matches[2];
+            },
+            $html
+        );
+
+        return $rewritten ?? $html;
+    }
+
+    /**
+     * Convert a remote Zendesk asset URL into a Moodle proxy URL when needed.
+     *
+     * @param int $localticketid Local ticket id.
+     * @param string $url Remote asset URL.
+     * @return string
+     */
+    private function proxy_or_passthrough_asset_url(int $localticketid, string $url): string {
+        if ($this->is_proxyable_zendesk_url($url)) {
+            return (new \moodle_url('/local/zendesk/attachment.php', [
+                'id' => $localticketid,
+                'url' => $this->encode_attachment_url($url),
+            ]))->out(false);
+        }
+
+        return $url;
+    }
+
+    /**
+     * Determine whether a remote URL should be proxied through Moodle.
+     *
+     * @param string $url Remote asset URL.
+     * @return bool
+     */
+    private function is_proxyable_zendesk_url(string $url): bool {
+        $host = strtolower((string) parse_url($url, PHP_URL_HOST));
+        $scheme = strtolower((string) parse_url($url, PHP_URL_SCHEME));
+        if ($host === '' || $scheme !== 'https') {
+            return false;
+        }
+
+        return $host === strtolower($this->get_zendesk_host());
+    }
+
+    /**
+     * Encode a remote asset URL for safe transport through Moodle.
+     *
+     * @param string $url Remote asset URL.
+     * @return string
+     */
+    private function encode_attachment_url(string $url): string {
+        return rtrim(strtr(base64_encode($url), '+/', '-_'), '=');
+    }
+
+    /**
+     * Decode an encoded remote asset URL.
+     *
+     * @param string $encodedurl Encoded remote asset URL.
+     * @return string
+     */
+    private function decode_attachment_url(string $encodedurl): string {
+        $encodedurl = trim($encodedurl);
+        if ($encodedurl === '') {
+            return '';
+        }
+
+        $encodedurl = strtr($encodedurl, '-_', '+/');
+        $padding = strlen($encodedurl) % 4;
+        if ($padding > 0) {
+            $encodedurl .= str_repeat('=', 4 - $padding);
+        }
+
+        $decoded = base64_decode($encodedurl, true);
+        return $decoded === false ? '' : $decoded;
+    }
+
+    /**
+     * Get the configured Zendesk hostname.
+     *
+     * @return string
+     */
+    private function get_zendesk_host(): string {
+        $config = $this->get_config();
+        return $this->normalise_subdomain($config->subdomain) . '.zendesk.com';
+    }
+
+    /**
      * Map a ticket to a badge class.
      *
      * @param \stdClass $ticket Ticket record.
@@ -736,6 +943,63 @@ final class zendesk_service {
             'dashboardlimit' => (int) get_config(constants::COMPONENT, 'dashboardlimit'),
             'syncbatchsize' => (int) get_config(constants::COMPONENT, 'syncbatchsize'),
             'instanceuuid' => trim((string) get_config(constants::COMPONENT, 'instanceuuid')),
+        ];
+    }
+
+    /**
+     * Download a Zendesk-hosted binary asset.
+     *
+     * @param string $url Remote asset URL.
+     * @return array
+     */
+    private function download_remote_asset(string $url): array {
+        $config = $this->get_config();
+        $headers = [];
+        $ch = curl_init($url);
+        if ($ch === false) {
+            throw new \RuntimeException('Unable to initialise cURL.');
+        }
+
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+        curl_setopt($ch, CURLOPT_HTTPAUTH, CURLAUTH_BASIC);
+        curl_setopt($ch, CURLOPT_USERPWD, $config->serviceemail . '/token:' . $config->apitoken);
+        curl_setopt($ch, CURLOPT_TIMEOUT, 20);
+        curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 10);
+        curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
+        curl_setopt($ch, CURLOPT_HEADERFUNCTION, static function($curl, $header) use (&$headers): int {
+            $length = strlen($header);
+            $parts = explode(':', $header, 2);
+            if (count($parts) === 2) {
+                $headers[strtolower(trim($parts[0]))] = trim($parts[1]);
+            }
+            return $length;
+        });
+
+        $body = curl_exec($ch);
+        if ($body === false) {
+            $error = curl_error($ch);
+            curl_close($ch);
+            throw new \RuntimeException($error ?: 'Zendesk attachment request failed.');
+        }
+
+        $status = (int) curl_getinfo($ch, CURLINFO_RESPONSE_CODE);
+        curl_close($ch);
+
+        if ($status >= 400) {
+            throw new \moodle_exception(
+                'attachmentdownloadfailed',
+                constants::COMPONENT,
+                '',
+                null,
+                get_string('unexpectedapistatus', constants::COMPONENT, $status)
+            );
+        }
+
+        return [
+            'body' => $body,
+            'contenttype' => $headers['content-type'] ?? 'application/octet-stream',
+            'contentlength' => !empty($headers['content-length']) ? (int) $headers['content-length'] : null,
+            'contentdisposition' => $headers['content-disposition'] ?? '',
         ];
     }
 

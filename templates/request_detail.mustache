@@ -76,7 +76,26 @@
                     <span class="local-zendesk-chat__timestamp">{{createdhuman}}</span>
                 </div>
                 <div class="local-zendesk-chat__bubble {{bubbleclass}}">
+                    {{#hasbodyhtml}}
                     {{{bodyhtml}}}
+                    {{/hasbodyhtml}}
+
+                    {{#hasattachments}}
+                    <div class="local-zendesk-chat__attachments">
+                        {{#attachments}}
+                        <a class="local-zendesk-chat__attachment {{#isimage}}local-zendesk-chat__attachment--image{{/isimage}}{{^isimage}}local-zendesk-chat__attachment--file{{/isimage}}"
+                            href="{{downloadurl}}" target="_blank" rel="noopener noreferrer">
+                            {{#isimage}}
+                            <img class="local-zendesk-chat__attachment-preview" src="{{previewurl}}" alt="{{filename}}">
+                            {{/isimage}}
+                            <span class="local-zendesk-chat__attachment-name">{{filename}}</span>
+                            {{#hasfilesize}}
+                            <span class="local-zendesk-chat__attachment-size">{{filesizehuman}}</span>
+                            {{/hasfilesize}}
+                        </a>
+                        {{/attachments}}
+                    </div>
+                    {{/hasattachments}}
                 </div>
             </article>
             {{/publicreplies}}
