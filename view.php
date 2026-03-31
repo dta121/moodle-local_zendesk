@@ -60,6 +60,8 @@ if (!empty($ticket['hasreplyform'])) {
                 $message = $result->pendingconfirmation
                     ? get_string('followupcreatedpending', 'local_zendesk')
                     : get_string('followupcreated', 'local_zendesk');
+            } else if ($result->action === 'reply') {
+                $message = get_string('replysent', 'local_zendesk');
             } else {
                 $message = get_string('ticketreopened', 'local_zendesk');
             }

@@ -21,7 +21,7 @@ defined('MOODLE_INTERNAL') || die();
 require_once($CFG->libdir . '/formslib.php');
 
 /**
- * Reply form for solved or closed Zendesk tickets.
+ * Reply form for Zendesk ticket conversations.
  *
  * @package   local_zendesk
  */

@@ -281,16 +281,21 @@ final class zendesk_service {
             return $ticket;
         }
 
-        if ($this->can_reply_and_reopen($record)) {
+        $replyaction = $this->get_reply_action_for_ticket($record);
+        if ($replyaction !== 'none') {
             $ticket['hasreplyform'] = true;
-            if (strtolower((string) $record->status) === 'closed') {
+            if ($replyaction === 'followup') {
                 $ticket['replyheading'] = get_string('replyfollowupheading', constants::COMPONENT);
                 $ticket['replyhelptext'] = get_string('replyfollowuphelp', constants::COMPONENT);
                 $ticket['replyactionlabel'] = get_string('replyfollowupbutton', constants::COMPONENT);
-            } else {
+            } else if ($replyaction === 'reopen') {
                 $ticket['replyheading'] = get_string('replyreopenheading', constants::COMPONENT);
                 $ticket['replyhelptext'] = get_string('replyreopenhelp', constants::COMPONENT);
                 $ticket['replyactionlabel'] = get_string('replyreopenbutton', constants::COMPONENT);
+            } else {
+                $ticket['replyheading'] = get_string('replyactiveheading', constants::COMPONENT);
+                $ticket['replyhelptext'] = get_string('replyactivehelp', constants::COMPONENT);
+                $ticket['replyactionlabel'] = get_string('replyactivebutton', constants::COMPONENT);
             }
         }
 
@@ -308,7 +313,7 @@ final class zendesk_service {
     }
 
     /**
-     * Reply to a solved or closed ticket.
+     * Reply to a Zendesk ticket.
      *
      * @param int $ticketid Local ticket id.
      * @param int $userid Moodle user id.
@@ -346,12 +351,12 @@ final class zendesk_service {
         $remoteticket = $this->get_ticket_by_id((int) $record->zendesk_ticket_id);
         $record = $this->repository->attach_remote_ticket((int) $record->id, $remoteticket);
 
-        $status = strtolower((string) ($record->status ?? ''));
-        if ($status === 'closed') {
+        $replyaction = $this->get_reply_action_for_ticket($record);
+        if ($replyaction === 'followup') {
             return $this->create_followup_reply($record, $user, $usermap, $message);
         }
 
-        if ($status !== 'solved') {
+        if (!in_array($replyaction, ['reply', 'reopen'], true)) {
             throw new \moodle_exception('replynotallowed', constants::COMPONENT);
         }
 
@@ -366,7 +371,7 @@ final class zendesk_service {
 
         return (object) [
             'localticketid' => (int) $updatedlocalticket->id,
-            'action' => 'reopened',
+            'action' => $replyaction,
             'pendingconfirmation' => false,
         ];
     }
@@ -625,17 +630,30 @@ final class zendesk_service {
     }
 
     /**
-     * Determine whether a ticket should display the reply/reopen form.
+     * Determine what reply action a ticket supports.
      *
      * @param \stdClass $ticket Ticket record.
-     * @return bool
+     * @return string One of followup, reopen, reply, or none.
      */
-    private function can_reply_and_reopen(\stdClass $ticket): bool {
+    private function get_reply_action_for_ticket(\stdClass $ticket): string {
         if (empty($ticket->zendesk_ticket_id)) {
-            return false;
+            return 'none';
         }
 
-        return in_array(strtolower((string) ($ticket->status ?? '')), ['solved', 'closed'], true);
+        $status = strtolower((string) ($ticket->status ?? ''));
+        if ($status === 'closed') {
+            return 'followup';
+        }
+
+        if ($status === 'solved') {
+            return 'reopen';
+        }
+
+        if (in_array($status, ['new', 'open', 'pending', 'hold'], true)) {
+            return 'reply';
+        }
+
+        return 'none';
     }
 
     /**
