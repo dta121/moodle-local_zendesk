@@ -313,6 +313,16 @@ final class ticket_repository {
     }
 
     /**
+     * Get a Zendesk user mapping by local map id.
+     *
+     * @param int $usermapid Local user map id.
+     * @return \stdClass|null
+     */
+    public function get_user_map_by_id(int $usermapid): ?\stdClass {
+        return $this->db->get_record('local_zendesk_usermap', ['id' => $usermapid]) ?: null;
+    }
+
+    /**
      * Determine whether a Zendesk status is terminal for frequent sync.
      *
      * @param string $status Zendesk ticket status.

@@ -33,10 +33,35 @@
             {{/haserror}}
 
             {{#hasbodyhtml}}
+            <h5 class="mt-4">{{messageheading}}</h5>
             <div class="border rounded p-3 mt-3">
                 {{{bodyhtml}}}
             </div>
             {{/hasbodyhtml}}
+
+            <h5 class="mt-4">{{repliesheading}}</h5>
+
+            {{#haspublicreplies}}
+            {{#publicreplies}}
+            <div class="border rounded p-3 mt-3">
+                <div class="d-flex justify-content-between align-items-start flex-wrap mb-2">
+                    <strong>{{authorlabel}}</strong>
+                    <span class="text-muted small">{{createdhuman}}</span>
+                </div>
+                {{{bodyhtml}}}
+            </div>
+            {{/publicreplies}}
+            {{/haspublicreplies}}
+
+            {{#hasreplyloaderror}}
+            <div class="alert alert-warning mt-3">{{replyloaderror}}</div>
+            {{/hasreplyloaderror}}
+
+            {{^haspublicreplies}}
+            {{^hasreplyloaderror}}
+            <div class="text-muted mt-3">{{norepliesyet}}</div>
+            {{/hasreplyloaderror}}
+            {{/haspublicreplies}}
         </div>
     </div>
 </div>

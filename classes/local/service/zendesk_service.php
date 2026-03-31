@@ -272,7 +272,29 @@ final class zendesk_service {
             );
         }
 
-        return $this->format_ticket_for_output($record, true);
+        $ticket = $this->format_ticket_for_output($record, true);
+        $ticket['messageheading'] = get_string('messageheading', constants::COMPONENT);
+        $ticket['repliesheading'] = get_string('repliesheading', constants::COMPONENT);
+        $ticket['norepliesyet'] = get_string('norepliesyet', constants::COMPONENT);
+        $ticket['publicreplies'] = [];
+        $ticket['haspublicreplies'] = false;
+        $ticket['hasreplyloaderror'] = false;
+
+        if (empty($record->zendesk_ticket_id) || !$this->is_enabled() || !$this->is_configured()) {
+            return $ticket;
+        }
+
+        try {
+            $usermap = $this->repository->get_user_map_by_id((int) $record->usermapid);
+            $requesterzendeskuserid = !empty($usermap->zendesk_user_id) ? (int) $usermap->zendesk_user_id : 0;
+            $ticket['publicreplies'] = $this->get_public_replies((int) $record->zendesk_ticket_id, $requesterzendeskuserid);
+            $ticket['haspublicreplies'] = !empty($ticket['publicreplies']);
+        } catch (\Throwable $e) {
+            $ticket['hasreplyloaderror'] = true;
+            $ticket['replyloaderror'] = get_string('replyloaderror', constants::COMPONENT);
+        }
+
+        return $ticket;
     }
 
     /**
@@ -336,6 +358,49 @@ final class zendesk_service {
         }
 
         return $tickets;
+    }
+
+    /**
+     * Fetch public Zendesk replies for a ticket.
+     *
+     * @param int $zendeskticketid Zendesk ticket id.
+     * @param int $requesterzendeskuserid Zendesk user id for the Moodle requester.
+     * @return array
+     */
+    private function get_public_replies(int $zendeskticketid, int $requesterzendeskuserid = 0): array {
+        $response = $this->request('GET', '/tickets/' . $zendeskticketid . '/comments.json', null, [
+            'sort_order' => 'asc',
+            'per_page' => 100,
+        ]);
+
+        $replies = [];
+        foreach ($response['body']['comments'] ?? [] as $comment) {
+            if (empty($comment['public'])) {
+                continue;
+            }
+
+            $authorid = !empty($comment['author_id']) ? (int) $comment['author_id'] : 0;
+            if ($requesterzendeskuserid > 0 && $authorid === $requesterzendeskuserid) {
+                continue;
+            }
+
+            $plainbody = trim((string) ($comment['plain_body'] ?? $comment['body'] ?? ''));
+            if ($plainbody === '' && !empty($comment['html_body'])) {
+                $plainbody = trim(html_entity_decode(strip_tags((string) $comment['html_body'])));
+            }
+            if ($plainbody === '') {
+                continue;
+            }
+
+            $createdat = !empty($comment['created_at']) ? strtotime((string) $comment['created_at']) : 0;
+            $replies[] = [
+                'authorlabel' => get_string('supportreplyauthor', constants::COMPONENT),
+                'createdhuman' => $createdat ? userdate($createdat) : '',
+                'bodyhtml' => format_text($plainbody, FORMAT_PLAIN),
+            ];
+        }
+
+        return $replies;
     }
 
     /**
