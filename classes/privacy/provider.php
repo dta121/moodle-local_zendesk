@@ -168,57 +168,54 @@ final class provider implements
 
         $userid = (int) $contextlist->get_user()->id;
         $systemcontext = \context_system::instance();
-        $writer = writer::with_context($systemcontext);
-
+        $exportdata = [];
         $usermap = $DB->get_record('local_zendesk_usermap', ['userid' => $userid]);
         if ($usermap) {
-            $writer->export_data(['zendesk_support'], (object) [
-                'user_mapping' => (object) [
-                    'zendesk_user_id' => (int) $usermap->zendesk_user_id,
-                    'zendesk_external_id' => $usermap->zendesk_external_id,
-                    'zendesk_email' => $usermap->zendesk_email,
-                    'lastsyncedat' => transform::datetime($usermap->lastsyncedat),
-                    'timecreated' => transform::datetime($usermap->timecreated),
-                    'timemodified' => transform::datetime($usermap->timemodified),
-                ],
-            ]);
-        }
-
-        $tickets = $DB->get_records('local_zendesk_ticket', ['userid' => $userid], 'timecreated ASC');
-        if (!$tickets) {
-            return;
-        }
-
-        $coursenames = self::get_course_name_map($tickets);
-        $exportedtickets = [];
-        foreach ($tickets as $ticket) {
-            $exportedtickets[] = (object) [
-                'local_ticket_id' => (int) $ticket->id,
-                'uuid' => $ticket->uuid,
-                'courseid' => $ticket->courseid ? (int) $ticket->courseid : null,
-                'coursename' => $ticket->courseid && isset($coursenames[(int) $ticket->courseid])
-                    ? $coursenames[(int) $ticket->courseid]
-                    : null,
-                'contextid' => $ticket->contextid ? (int) $ticket->contextid : null,
-                'zendesk_ticket_id' => $ticket->zendesk_ticket_id ? (int) $ticket->zendesk_ticket_id : null,
-                'zendesk_ticket_external_id' => $ticket->zendesk_ticket_external_id,
-                'subject' => $ticket->subject,
-                'body' => $ticket->body,
-                'status' => $ticket->status,
-                'custom_status_id' => $ticket->custom_status_id ? (int) $ticket->custom_status_id : null,
-                'syncstate' => $ticket->syncstate,
-                'lastremoteupdatedat' => $ticket->lastremoteupdatedat ? transform::datetime($ticket->lastremoteupdatedat) : null,
-                'lastsyncattemptat' => $ticket->lastsyncattemptat ? transform::datetime($ticket->lastsyncattemptat) : null,
-                'lastsyncat' => $ticket->lastsyncat ? transform::datetime($ticket->lastsyncat) : null,
-                'submissionerror' => $ticket->submissionerror,
-                'timecreated' => transform::datetime($ticket->timecreated),
-                'timemodified' => transform::datetime($ticket->timemodified),
+            $exportdata['user_mapping'] = (object) [
+                'zendesk_user_id' => (int) $usermap->zendesk_user_id,
+                'zendesk_external_id' => $usermap->zendesk_external_id,
+                'zendesk_email' => $usermap->zendesk_email,
+                'lastsyncedat' => transform::datetime($usermap->lastsyncedat),
+                'timecreated' => transform::datetime($usermap->timecreated),
+                'timemodified' => transform::datetime($usermap->timemodified),
             ];
         }
 
-        $writer->export_data(['zendesk_support'], (object) [
-            'tickets' => $exportedtickets,
-        ]);
+        $tickets = $DB->get_records('local_zendesk_ticket', ['userid' => $userid], 'timecreated ASC');
+        if ($tickets) {
+            $coursenames = self::get_course_name_map($tickets);
+            $exportedtickets = [];
+            foreach ($tickets as $ticket) {
+                $exportedtickets[] = (object) [
+                    'local_ticket_id' => (int) $ticket->id,
+                    'uuid' => $ticket->uuid,
+                    'courseid' => $ticket->courseid ? (int) $ticket->courseid : null,
+                    'coursename' => $ticket->courseid && isset($coursenames[(int) $ticket->courseid])
+                        ? $coursenames[(int) $ticket->courseid]
+                        : null,
+                    'contextid' => $ticket->contextid ? (int) $ticket->contextid : null,
+                    'zendesk_ticket_id' => $ticket->zendesk_ticket_id ? (int) $ticket->zendesk_ticket_id : null,
+                    'zendesk_ticket_external_id' => $ticket->zendesk_ticket_external_id,
+                    'subject' => $ticket->subject,
+                    'body' => $ticket->body,
+                    'status' => $ticket->status,
+                    'custom_status_id' => $ticket->custom_status_id ? (int) $ticket->custom_status_id : null,
+                    'syncstate' => $ticket->syncstate,
+                    'lastremoteupdatedat' => $ticket->lastremoteupdatedat ? transform::datetime($ticket->lastremoteupdatedat) : null,
+                    'lastsyncattemptat' => $ticket->lastsyncattemptat ? transform::datetime($ticket->lastsyncattemptat) : null,
+                    'lastsyncat' => $ticket->lastsyncat ? transform::datetime($ticket->lastsyncat) : null,
+                    'submissionerror' => $ticket->submissionerror,
+                    'timecreated' => transform::datetime($ticket->timecreated),
+                    'timemodified' => transform::datetime($ticket->timemodified),
+                ];
+            }
+
+            $exportdata['tickets'] = $exportedtickets;
+        }
+
+        if ($exportdata !== []) {
+            writer::with_context($systemcontext)->export_data(['zendesk_support'], (object) $exportdata);
+        }
     }
 
     /**
