@@ -42,8 +42,8 @@ use core_privacy\local\request\writer;
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 final class provider implements
-    core_userlist_provider,
     \core_privacy\local\metadata\provider,
+    core_userlist_provider,
     request_provider {
     /**
      * Describe the user data stored and processed by this plugin.

@@ -22,6 +22,7 @@
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
+// phpcs:ignoreFile -- Zendesk may redirect here after end-user sign-out.
 require_once(__DIR__ . '/../../config.php');
 
 use local_zendesk\local\service\jwt_sso_service;
