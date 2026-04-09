@@ -561,46 +561,14 @@ final class zendesk_service {
      * @return array
      */
     private function get_ticket_comments(int $zendeskticketid): array {
-        $config = $this->get_config();
-        $subdomain = $this->normalise_subdomain($config->subdomain);
-        $url = 'https://' . $subdomain . '.zendesk.com/api/v2/tickets/' . $zendeskticketid .
-            '/comments.json?sort_order=asc&per_page=100&include_inline_images=true';
+        $response = $this->request('GET', '/tickets/' . $zendeskticketid . '/comments.json', null, [
+            'sort_order' => 'asc',
+            'per_page' => 100,
+            'include_inline_images' => 'true',
+        ]);
 
-        $ch = curl_init($url);
-        if ($ch === false) {
-            throw new \RuntimeException('Unable to initialise cURL.');
-        }
-
-        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-        curl_setopt($ch, CURLOPT_HTTPAUTH, CURLAUTH_BASIC);
-        curl_setopt($ch, CURLOPT_USERPWD, $config->serviceemail . '/token:' . $config->apitoken);
-        curl_setopt($ch, CURLOPT_TIMEOUT, 20);
-        curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 10);
-
-        $rawbody = curl_exec($ch);
-        if ($rawbody === false) {
-            $error = curl_error($ch);
-            curl_close($ch);
-            throw new \RuntimeException($error ?: 'Zendesk comment request failed.');
-        }
-
-        $status = (int) curl_getinfo($ch, CURLINFO_RESPONSE_CODE);
-        curl_close($ch);
-
-        $decoded = [];
-        if ($rawbody !== '') {
-            $decoded = json_decode($rawbody, true);
-            if ($decoded === null && json_last_error() !== JSON_ERROR_NONE) {
-                throw new \moodle_exception('invalidapiresponse', constants::COMPONENT);
-            }
-        }
-
-        if ($status >= 400) {
-            $message = $this->extract_api_error_message($decoded, $status);
-            throw new \moodle_exception('apifailure', constants::COMPONENT, '', null, $message);
-        }
-
-        return $decoded['comments'] ?? [];
+        $comments = $response['body']['comments'] ?? [];
+        return is_array($comments) ? $comments : [];
     }
 
     /**
@@ -1076,37 +1044,19 @@ final class zendesk_service {
      * @return array
      */
     private function download_remote_asset(string $url): array {
-        $config = $this->get_config();
-        $headers = [];
-        $ch = curl_init($url);
-        if ($ch === false) {
-            throw new \RuntimeException('Unable to initialise cURL.');
+        $curl = $this->build_authenticated_curl();
+        $body = $curl->get($url, [], [
+            'CURLOPT_TIMEOUT' => 20,
+            'CURLOPT_CONNECTTIMEOUT' => 10,
+            'CURLOPT_FOLLOWLOCATION' => 1,
+            'CURLOPT_MAXREDIRS' => 5,
+        ]);
+        $status = $this->get_curl_http_status($curl);
+        if ($this->has_curl_error($curl)) {
+            throw new \RuntimeException(
+                $this->get_curl_error_text($curl, 'Zendesk attachment request failed.')
+            );
         }
-
-        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-        curl_setopt($ch, CURLOPT_HTTPAUTH, CURLAUTH_BASIC);
-        curl_setopt($ch, CURLOPT_USERPWD, $config->serviceemail . '/token:' . $config->apitoken);
-        curl_setopt($ch, CURLOPT_TIMEOUT, 20);
-        curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 10);
-        curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
-        curl_setopt($ch, CURLOPT_HEADERFUNCTION, static function ($curl, $header) use (&$headers): int {
-            $length = strlen($header);
-            $parts = explode(':', $header, 2);
-            if (count($parts) === 2) {
-                $headers[strtolower(trim($parts[0]))] = trim($parts[1]);
-            }
-            return $length;
-        });
-
-        $body = curl_exec($ch);
-        if ($body === false) {
-            $error = curl_error($ch);
-            curl_close($ch);
-            throw new \RuntimeException($error ?: 'Zendesk attachment request failed.');
-        }
-
-        $status = (int) curl_getinfo($ch, CURLINFO_RESPONSE_CODE);
-        curl_close($ch);
 
         if ($status >= 400) {
             throw new \moodle_exception(
@@ -1117,6 +1067,8 @@ final class zendesk_service {
                 get_string('unexpectedapistatus', constants::COMPONENT, $status)
             );
         }
+
+        $headers = $this->normalise_response_headers($curl->getResponse());
 
         return [
             'body' => $body,
@@ -1144,13 +1096,8 @@ final class zendesk_service {
             $url .= '?' . http_build_query($query);
         }
 
-        $headers = [];
         $requestheaders = ['Accept: application/json'];
-
-        $ch = curl_init($url);
-        if ($ch === false) {
-            throw new \RuntimeException('Unable to initialise cURL.');
-        }
+        $json = null;
 
         if ($payload !== null) {
             $json = json_encode($payload, JSON_UNESCAPED_SLASHES);
@@ -1158,34 +1105,39 @@ final class zendesk_service {
                 throw new \coding_exception('Unable to encode Zendesk request payload.');
             }
             $requestheaders[] = 'Content-Type: application/json';
-            curl_setopt($ch, CURLOPT_POSTFIELDS, $json);
         }
 
-        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-        curl_setopt($ch, CURLOPT_CUSTOMREQUEST, strtoupper($method));
-        curl_setopt($ch, CURLOPT_HTTPAUTH, CURLAUTH_BASIC);
-        curl_setopt($ch, CURLOPT_USERPWD, $config->serviceemail . '/token:' . $config->apitoken);
-        curl_setopt($ch, CURLOPT_HTTPHEADER, $requestheaders);
-        curl_setopt($ch, CURLOPT_TIMEOUT, 20);
-        curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 10);
-        curl_setopt($ch, CURLOPT_HEADERFUNCTION, static function ($curl, $header) use (&$headers): int {
-            $length = strlen($header);
-            $parts = explode(':', $header, 2);
-            if (count($parts) === 2) {
-                $headers[strtolower(trim($parts[0]))] = trim($parts[1]);
-            }
-            return $length;
-        });
+        $curl = $this->build_authenticated_curl($requestheaders);
+        $options = [
+            'CURLOPT_TIMEOUT' => 20,
+            'CURLOPT_CONNECTTIMEOUT' => 10,
+        ];
 
-        $rawbody = curl_exec($ch);
-        if ($rawbody === false) {
-            $error = curl_error($ch);
-            curl_close($ch);
-            throw new \RuntimeException($error ?: 'Zendesk request failed.');
+        switch (strtoupper($method)) {
+            case 'GET':
+                $rawbody = $curl->get($url, [], $options);
+                break;
+
+            case 'POST':
+                $rawbody = $curl->post($url, $json ?? '', $options);
+                break;
+
+            case 'PUT':
+                $rawbody = $curl->put($url, $json ?? '', $options);
+                break;
+
+            default:
+                throw new \coding_exception('Unsupported Zendesk request method: ' . $method);
         }
 
-        $status = (int) curl_getinfo($ch, CURLINFO_RESPONSE_CODE);
-        curl_close($ch);
+        if ($this->has_curl_error($curl)) {
+            throw new \RuntimeException(
+                $this->get_curl_error_text($curl, 'Zendesk request failed.')
+            );
+        }
+
+        $status = $this->get_curl_http_status($curl);
+        $headers = $this->normalise_response_headers($curl->getResponse());
 
         $decoded = [];
         if ($rawbody !== '') {
@@ -1208,6 +1160,90 @@ final class zendesk_service {
             'body' => $decoded,
             'headers' => $headers,
         ];
+    }
+
+    /**
+     * Build an authenticated Moodle curl client for Zendesk requests.
+     *
+     * @param array $headers Optional request headers.
+     * @return \curl
+     */
+    private function build_authenticated_curl(array $headers = []): \curl {
+        global $CFG;
+
+        require_once($CFG->libdir . '/filelib.php');
+
+        $config = $this->get_config();
+        $curl = new \curl();
+        if ($headers !== []) {
+            $curl->setHeader($headers);
+        }
+
+        $curl->setopt([
+            'CURLOPT_HTTPAUTH' => CURLAUTH_BASIC,
+            'CURLOPT_USERPWD' => $config->serviceemail . '/token:' . $config->apitoken,
+        ]);
+
+        return $curl;
+    }
+
+    /**
+     * Get the HTTP status from a Moodle curl response.
+     *
+     * @param \curl $curl Moodle curl client.
+     * @return int
+     */
+    private function get_curl_http_status(\curl $curl): int {
+        $info = $curl->get_info();
+        return (int) ($info['http_code'] ?? 0);
+    }
+
+    /**
+     * Determine whether a Moodle curl request failed before receiving a valid response.
+     *
+     * @param \curl $curl Moodle curl client.
+     * @return bool
+     */
+    private function has_curl_error(\curl $curl): bool {
+        return !empty($curl->errno)
+            || ($this->get_curl_http_status($curl) === 0 && !empty($curl->error));
+    }
+
+    /**
+     * Extract a readable curl error string.
+     *
+     * @param \curl $curl Moodle curl client.
+     * @param string $fallback Fallback message.
+     * @return string
+     */
+    private function get_curl_error_text(\curl $curl, string $fallback): string {
+        $error = trim((string) ($curl->error ?? ''));
+        return $error !== '' ? $error : $fallback;
+    }
+
+    /**
+     * Normalise response headers from Moodle curl.
+     *
+     * @param array $headers Response headers.
+     * @return array
+     */
+    private function normalise_response_headers(array $headers): array {
+        $normalised = [];
+
+        foreach ($headers as $name => $value) {
+            $key = strtolower(trim((string) $name));
+            if ($key === '') {
+                continue;
+            }
+
+            if (is_array($value)) {
+                $value = end($value);
+            }
+
+            $normalised[$key] = trim((string) $value);
+        }
+
+        return $normalised;
     }
 
     /**
