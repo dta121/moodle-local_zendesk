@@ -27,8 +27,6 @@ namespace local_zendesk\local\service;
 use local_zendesk\local\constants;
 use local_zendesk\local\repository\ticket_repository;
 
-defined('MOODLE_INTERNAL') || die();
-
 /**
  * High-level Zendesk integration service.
  *
@@ -715,8 +713,12 @@ final class zendesk_service {
         }
 
         $xpath = new \DOMXPath($document);
+        $nbsp = html_entity_decode('&nbsp;', ENT_QUOTES | ENT_HTML5, 'UTF-8');
         while (true) {
-            $nodes = $xpath->query('//*[@id="' . $wrapperid . '"]//*[self::p or self::div or self::span or self::figure or self::a][not(*) and normalize-space(translate(., " ", " ")) = ""]');
+            $query = '//*[@id="' . $wrapperid . '"]//*[self::p or self::div or self::span'
+                . ' or self::figure or self::a][not(*) and '
+                . 'normalize-space(translate(., "' . $nbsp . '", " ")) = ""]';
+            $nodes = $xpath->query($query);
             if ($nodes === false || $nodes->length === 0) {
                 break;
             }
@@ -897,7 +899,7 @@ final class zendesk_service {
     private function rewrite_comment_asset_urls(int $localticketid, string $html): string {
         $rewritten = preg_replace_callback(
             '/\b(href|src)=(["\'])([^"\']+)\2/i',
-            function(array $matches) use ($localticketid): string {
+            function (array $matches) use ($localticketid): string {
                 $rawurl = html_entity_decode($matches[3], ENT_QUOTES | ENT_HTML5);
                 $url = $this->proxy_or_passthrough_asset_url($localticketid, $rawurl);
                 return $matches[1] . '=' . $matches[2] . s($url) . $matches[2];
@@ -1087,7 +1089,7 @@ final class zendesk_service {
         curl_setopt($ch, CURLOPT_TIMEOUT, 20);
         curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 10);
         curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
-        curl_setopt($ch, CURLOPT_HEADERFUNCTION, static function($curl, $header) use (&$headers): int {
+        curl_setopt($ch, CURLOPT_HEADERFUNCTION, static function ($curl, $header) use (&$headers): int {
             $length = strlen($header);
             $parts = explode(':', $header, 2);
             if (count($parts) === 2) {
@@ -1166,7 +1168,7 @@ final class zendesk_service {
         curl_setopt($ch, CURLOPT_HTTPHEADER, $requestheaders);
         curl_setopt($ch, CURLOPT_TIMEOUT, 20);
         curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 10);
-        curl_setopt($ch, CURLOPT_HEADERFUNCTION, static function($curl, $header) use (&$headers): int {
+        curl_setopt($ch, CURLOPT_HEADERFUNCTION, static function ($curl, $header) use (&$headers): int {
             $length = strlen($header);
             $parts = explode(':', $header, 2);
             if (count($parts) === 2) {

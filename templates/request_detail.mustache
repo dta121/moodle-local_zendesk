@@ -1,6 +1,53 @@
 {{!
   This file is part of Moodle - http://moodle.org/
 
+  @template local_zendesk/request_detail
+
+  Example context (json):
+  {
+    "backurl": "#",
+    "backlabel": "Back to requests",
+    "hashelpcenterlink": true,
+    "helpcenterurl": "#",
+    "helpcenterlabel": "Open Help Center",
+    "statusclass": "badge badge-info",
+    "statuslabel": "Open",
+    "supportreplyinitial": "HD",
+    "conversationeyebrow": "Zendesk support thread",
+    "subject": "Testing Plugin for Moodle",
+    "messagesubtitle": "Your conversation with the help desk stays here in Moodle.",
+    "hascourse": true,
+    "coursefullname": "Student Success 101",
+    "createdlabel": "Created",
+    "updatedlabel": "Updated",
+    "timecreatedhuman": "April 9, 2026, 10:00 AM",
+    "timemodifiedhuman": "April 9, 2026, 12:00 PM",
+    "haszendeskticketid": true,
+    "requestnumberlabel": "Zendesk ticket",
+    "zendeskticketid": 42,
+    "messageheading": "Your message",
+    "repliesheading": "Conversation",
+    "messageauthorinitial": "ME",
+    "messageauthorlabel": "You",
+    "hasbodyhtml": true,
+    "bodyhtml": "<p>Hello support team.</p>",
+    "haspublicreplies": true,
+    "publicreplies": [
+      {
+        "messageclass": "local-zendesk-chat__message local-zendesk-chat__message--support",
+        "avatarclass": "local-zendesk-chat__avatar--support",
+        "authorinitial": "HD",
+        "authorlabel": "Help desk",
+        "createdhuman": "April 9, 2026, 12:00 PM",
+        "bubbleclass": "local-zendesk-chat__bubble local-zendesk-chat__bubble--support",
+        "hasbodyhtml": true,
+        "bodyhtml": "<p>We can help with that.</p>",
+        "hasattachments": false
+      }
+    ],
+    "hasreplyformhtml": false
+  }
+
   @package local_zendesk
   @copyright 2026 David Ta <david.ta@saylor.org>
   @license http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later

@@ -1,6 +1,33 @@
 {{!
   This file is part of Moodle - http://moodle.org/
 
+  @template local_zendesk/request_list
+
+  Example context (json):
+  {
+    "newrequesturl": "#",
+    "newrequestlabel": "New request",
+    "hashelpcenterlink": true,
+    "helpcenterurl": "#",
+    "helpcenterlabel": "Open Help Center",
+    "requests": [
+      {
+        "viewurl": "#",
+        "subject": "Testing Plugin for Moodle",
+        "hascourse": true,
+        "coursefullname": "Student Success 101",
+        "statusclass": "badge badge-success",
+        "statuslabel": "Solved",
+        "createdlabel": "Created",
+        "updatedlabel": "Updated",
+        "timecreatedhuman": "April 9, 2026, 10:00 AM",
+        "timemodifiedhuman": "April 9, 2026, 12:00 PM",
+        "bodyexcerpt": "Everything is working now."
+      }
+    ],
+    "emptylabel": "No support requests have been submitted yet."
+  }
+
   @package local_zendesk
   @copyright 2026 David Ta <david.ta@saylor.org>
   @license http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later

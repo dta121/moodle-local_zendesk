@@ -26,6 +26,10 @@ require_once(__DIR__ . '/../../config.php');
 
 use local_zendesk\local\service\jwt_sso_service;
 
+if (isloggedin() && !isguestuser()) {
+    require_login(null, false);
+}
+
 $message = optional_param('message', '', PARAM_RAW_TRIMMED);
 $kind = optional_param('kind', '', PARAM_ALPHAEXT);
 $brandid = optional_param('brand_id', '', PARAM_RAW_TRIMMED);

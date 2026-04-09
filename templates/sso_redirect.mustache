@@ -1,6 +1,19 @@
 {{!
   This file is part of Moodle - http://moodle.org/
 
+  @template local_zendesk/sso_redirect
+
+  Example context (json):
+  {
+    "heading": "Opening Zendesk Help Center",
+    "body": "You are being signed into Zendesk with your Moodle account.",
+    "formaction": "https://example.zendesk.com/access/jwt",
+    "jwt": "header.payload.signature",
+    "hasreturnto": true,
+    "returnto": "/hc/en-us/requests",
+    "submitlabel": "Continue to Zendesk"
+  }
+
   @package local_zendesk
   @copyright 2026 David Ta <david.ta@saylor.org>
   @license http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
@@ -10,7 +23,7 @@
     <h2 class="h4 mb-3">{{heading}}</h2>
     <p class="text-muted mb-4">{{body}}</p>
 
-    <form id="{{formid}}" action="{{formaction}}" method="post">
+    <form id="local-zendesk-sso-redirect-form" action="{{formaction}}" method="post">
         <input type="hidden" name="jwt" value="{{jwt}}">
         {{#hasreturnto}}
         <input type="hidden" name="return_to" value="{{returnto}}">
@@ -23,5 +36,5 @@
 </div>
 
 {{#js}}
-document.getElementById('{{formid}}').submit();
+document.getElementById('local-zendesk-sso-redirect-form').submit();
 {{/js}}

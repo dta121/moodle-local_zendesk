@@ -26,8 +26,6 @@ namespace local_zendesk\task;
 
 use local_zendesk\local\service\zendesk_service;
 
-defined('MOODLE_INTERNAL') || die();
-
 /**
  * Scheduled task for syncing Zendesk tickets back into Moodle.
  *

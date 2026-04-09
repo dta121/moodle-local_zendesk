@@ -31,8 +31,6 @@ use core_external\external_single_structure;
 use core_external\external_value;
 use local_zendesk\local\service\agent_context_service;
 
-defined('MOODLE_INTERNAL') || die();
-
 /**
  * External function for Zendesk agent context lookups.
  *

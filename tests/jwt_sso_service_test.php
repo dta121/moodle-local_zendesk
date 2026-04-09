@@ -24,8 +24,6 @@
 
 namespace local_zendesk;
 
-defined('MOODLE_INTERNAL') || die();
-
 use local_zendesk\local\service\jwt_sso_service;
 
 /**
@@ -34,6 +32,7 @@ use local_zendesk\local\service\jwt_sso_service;
  * @package    local_zendesk
  * @copyright  2026 David Ta <david.ta@saylor.org>
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ * @covers     \local_zendesk\local\service\jwt_sso_service
  */
 final class jwt_sso_service_test extends \advanced_testcase {
     /**

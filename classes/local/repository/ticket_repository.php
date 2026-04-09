@@ -26,8 +26,6 @@ namespace local_zendesk\local\repository;
 
 use local_zendesk\local\constants;
 
-defined('MOODLE_INTERNAL') || die();
-
 /**
  * Data access for Moodle-managed Zendesk records.
  *

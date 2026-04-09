@@ -24,12 +24,12 @@
 
 namespace local_zendesk\privacy;
 
-defined('MOODLE_INTERNAL') || die();
-
 use core_privacy\local\metadata\collection;
 use core_privacy\local\request\approved_contextlist;
 use core_privacy\local\request\approved_userlist;
+use core_privacy\local\request\core_userlist_provider;
 use core_privacy\local\request\contextlist;
+use core_privacy\local\request\plugin\provider as request_provider;
 use core_privacy\local\request\transform;
 use core_privacy\local\request\userlist;
 use core_privacy\local\request\writer;
@@ -42,10 +42,9 @@ use core_privacy\local\request\writer;
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 final class provider implements
+    core_userlist_provider,
     \core_privacy\local\metadata\provider,
-    \core_privacy\local\request\plugin\provider,
-    \core_privacy\local\request\core_userlist_provider {
-
+    request_provider {
     /**
      * Describe the user data stored and processed by this plugin.
      *
@@ -201,8 +200,12 @@ final class provider implements
                     'status' => $ticket->status,
                     'custom_status_id' => $ticket->custom_status_id ? (int) $ticket->custom_status_id : null,
                     'syncstate' => $ticket->syncstate,
-                    'lastremoteupdatedat' => $ticket->lastremoteupdatedat ? transform::datetime($ticket->lastremoteupdatedat) : null,
-                    'lastsyncattemptat' => $ticket->lastsyncattemptat ? transform::datetime($ticket->lastsyncattemptat) : null,
+                    'lastremoteupdatedat' => $ticket->lastremoteupdatedat
+                        ? transform::datetime($ticket->lastremoteupdatedat)
+                        : null,
+                    'lastsyncattemptat' => $ticket->lastsyncattemptat
+                        ? transform::datetime($ticket->lastsyncattemptat)
+                        : null,
                     'lastsyncat' => $ticket->lastsyncat ? transform::datetime($ticket->lastsyncat) : null,
                     'submissionerror' => $ticket->submissionerror,
                     'timecreated' => transform::datetime($ticket->timecreated),
@@ -301,7 +304,7 @@ final class provider implements
     private static function get_course_name_map(array $tickets): array {
         global $DB;
 
-        $courseids = array_unique(array_filter(array_map(static function(\stdClass $ticket): int {
+        $courseids = array_unique(array_filter(array_map(static function (\stdClass $ticket): int {
             return (int) ($ticket->courseid ?? 0);
         }, $tickets)));
 

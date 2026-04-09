@@ -24,8 +24,6 @@
 
 namespace local_zendesk\local;
 
-defined('MOODLE_INTERNAL') || die();
-
 /**
  * Shared plugin constants.
  *

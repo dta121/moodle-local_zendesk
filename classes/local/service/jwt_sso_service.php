@@ -26,8 +26,6 @@ namespace local_zendesk\local\service;
 
 use local_zendesk\local\constants;
 
-defined('MOODLE_INTERNAL') || die();
-
 /**
  * Handles Zendesk JWT single sign-on for Moodle-authenticated users.
  *
@@ -159,6 +157,7 @@ final class jwt_sso_service {
      * @return \moodle_url
      */
     public function get_logout_redirect(?string $message, ?string $kind): \moodle_url {
+        unset($message, $kind);
         $context = \context_system::instance();
 
         if (isloggedin() && !isguestuser() && has_capability('local/zendesk:viewownrequests', $context)) {
@@ -197,7 +196,10 @@ final class jwt_sso_service {
             'message=' . $this->sanitise_log_value($message),
         ];
 
-        error_log('[local_zendesk] Zendesk SSO logout redirect ' . implode(' ', $parts));
+        debugging(
+            '[local_zendesk] Zendesk SSO logout redirect ' . implode(' ', $parts),
+            DEBUG_DEVELOPER
+        );
     }
 
     /**

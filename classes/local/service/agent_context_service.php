@@ -26,8 +26,6 @@ namespace local_zendesk\local\service;
 
 use local_zendesk\local\constants;
 
-defined('MOODLE_INTERNAL') || die();
-
 /**
  * Read-only Moodle context lookup for Zendesk agent tooling.
  *
@@ -328,7 +326,7 @@ final class agent_context_service {
     /**
      * Build a human-friendly location label from city, region, and country parts.
      *
-     * @param array{city:string, region:string, country:string} $parts Location parts.
+     * @param array $parts Location parts with city, region, and country keys.
      * @return string
      */
     private function format_location(array $parts): string {
