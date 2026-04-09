@@ -1,6 +1,19 @@
 /**
  * This file is part of Moodle - http://moodle.org/
  *
+ * Moodle is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * Moodle is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
+ *
  * @package    local_zendesk
  * @copyright  2026 David Ta <david.ta@saylor.org>
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
@@ -12,9 +25,9 @@
     --local-zendesk-line: rgba(24, 48, 70, 0.12);
     --local-zendesk-panel: rgba(255, 255, 255, 0.92);
     --local-zendesk-thread: #f8fbff;
-    --local-zendesk-student-start: #1177ff;
+    --local-zendesk-student-start: #17f;
     --local-zendesk-student-end: #4ca3ff;
-    --local-zendesk-support-bg: #ffffff;
+    --local-zendesk-support-bg: #fff;
     max-width: 100%;
     margin: 0 auto 2rem;
     padding: 1.25rem;
@@ -156,7 +169,7 @@
     flex: 0 0 3.3rem;
     border-radius: 1rem;
     background: linear-gradient(145deg, #0f7cff 0%, #59aefe 100%);
-    color: #ffffff;
+    color: #fff;
     font-size: 0.95rem;
     font-weight: 700;
     letter-spacing: 0.08em;
@@ -182,7 +195,7 @@
 .local-zendesk-chat__thread-title {
     margin: 0;
     color: var(--local-zendesk-ink);
-    font-size: clamp(1.4rem, 2vw, 2rem);
+    font-size: 1.85rem;
     font-weight: 700;
     line-height: 1.18;
 }
@@ -276,7 +289,8 @@
 .local-zendesk-chat__message {
     display: flex;
     flex-direction: column;
-    max-width: min(42rem, 92%);
+    width: 92%;
+    max-width: 42rem;
 }
 
 .local-zendesk-chat__message--student {
@@ -339,7 +353,7 @@
 
 .local-zendesk-chat__bubble--student {
     background: linear-gradient(135deg, var(--local-zendesk-student-start) 0%, var(--local-zendesk-student-end) 100%);
-    color: #ffffff;
+    color: #fff;
     border-bottom-right-radius: 0.2rem;
 }
 
@@ -364,10 +378,10 @@
 
 .local-zendesk-chat__bubble img {
     display: block;
-    max-width: min(100%, 15rem) !important;
+    max-width: 15rem;
     max-height: 11rem;
-    width: auto !important;
-    height: auto !important;
+    width: auto;
+    height: auto;
     margin: 0.35rem 0;
     border-radius: 0.9rem;
     object-fit: contain;
@@ -379,7 +393,7 @@
 }
 
 .local-zendesk-chat__bubble--student a {
-    color: #ffffff;
+    color: #fff;
 }
 
 .local-zendesk-chat__bubble--support a {
@@ -425,7 +439,7 @@
 
 .local-zendesk-chat__attachment-preview {
     display: block;
-    max-width: min(100%, 15rem);
+    max-width: 15rem;
     max-height: 11rem;
     width: auto;
     height: auto;
@@ -567,7 +581,7 @@
     border: 1px solid rgba(14, 82, 175, 0.24);
     border-radius: 1rem;
     background: linear-gradient(180deg, #1782ff 0%, #0f70e8 100%);
-    color: #ffffff;
+    color: #fff;
     font-weight: 700;
     letter-spacing: 0.01em;
     box-shadow: 0 10px 22px rgba(17, 119, 255, 0.2);
@@ -577,7 +591,7 @@
 .local-zendesk-chat__composer-form input[type="submit"]:focus,
 .local-zendesk-chat__composer-form .btn:hover,
 .local-zendesk-chat__composer-form .btn:focus {
-    color: #ffffff;
+    color: #fff;
     transform: translateY(-1px);
 }
 
@@ -603,6 +617,11 @@
     .local-zendesk-chat__toolbar-actions {
         width: 100%;
         justify-content: flex-start;
+    }
+
+    .local-zendesk-chat__title,
+    .local-zendesk-chat__thread-title {
+        font-size: 1.4rem;
     }
 
     .local-zendesk-chat__messages {
