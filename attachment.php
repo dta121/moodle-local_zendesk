@@ -38,15 +38,21 @@ $canviewall = has_capability('local/zendesk:viewallrequests', $context);
 $service = new zendesk_service();
 $attachment = $service->get_attachment_response_for_user($id, $USER->id, $encodedurl, $canviewall);
 
+// All header values are sanitised again here as a belt-and-braces measure;
+// the service layer already strips CR/LF and forces the Content-Type into a
+// safe allow-list and Content-Disposition into "attachment" form. The CSP
+// sandbox + nosniff combination ensures even a slipped-through text/html
+// cannot execute on the Moodle origin.
 header('X-Content-Type-Options: nosniff');
 header('Cache-Control: private, no-store, no-cache, must-revalidate');
 header('Pragma: no-cache');
-header('Content-Type: ' . $attachment['contenttype']);
+header("Content-Security-Policy: default-src 'none'; sandbox");
+header('Content-Type: ' . zendesk_service::sanitise_header_value((string) $attachment['contenttype']));
 if (!empty($attachment['contentlength'])) {
     header('Content-Length: ' . (int) $attachment['contentlength']);
 }
 if (!empty($attachment['contentdisposition'])) {
-    header('Content-Disposition: ' . $attachment['contentdisposition']);
+    header('Content-Disposition: ' . zendesk_service::sanitise_header_value((string) $attachment['contentdisposition']));
 }
 
 echo $attachment['body'];

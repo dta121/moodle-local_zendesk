@@ -33,6 +33,22 @@ use local_zendesk\local\repository\ticket_repository;
  * @package   local_zendesk
  */
 final class zendesk_service {
+    /**
+     * Content types the attachment proxy is allowed to serve inline. Anything
+     * else (text/html, image/svg+xml, application/javascript, XML, ...) gets
+     * remapped to application/octet-stream so the response cannot execute on
+     * the Moodle origin.
+     *
+     * @var string[]
+     */
+    private const SAFE_INLINE_CONTENT_TYPES = [
+        'image/png',
+        'image/jpeg',
+        'image/gif',
+        'image/webp',
+        'application/pdf',
+    ];
+
     /** @var ticket_repository */
     private $repository;
 
@@ -422,7 +438,14 @@ final class zendesk_service {
             throw new \moodle_exception('invalidattachmenturl', constants::COMPONENT);
         }
 
-        return $this->download_remote_asset((string) $manifest->remoteurl);
+        $upstream = $this->download_remote_asset((string) $manifest->remoteurl);
+
+        return [
+            'body' => $upstream['body'],
+            'contenttype' => self::safe_response_content_type((string) $upstream['contenttype']),
+            'contentlength' => $upstream['contentlength'],
+            'contentdisposition' => self::build_content_disposition((string) $manifest->filename),
+        ];
     }
 
     /**
@@ -659,7 +682,7 @@ final class zendesk_service {
                     $filename,
                     $contenttype !== '' ? $contenttype : null
                 ),
-                'isimage' => str_starts_with($contenttype, 'image/'),
+                'isimage' => self::is_safe_inline_image_content_type($contenttype),
                 'filesizehuman' => $filesize > 0 ? display_size($filesize) : '',
                 'hasfilesize' => $filesize > 0,
             ];
@@ -956,6 +979,93 @@ final class zendesk_service {
         }
 
         return $url;
+    }
+
+    /**
+     * Determine whether an upstream Content-Type can render inline as a
+     * thumbnail / image preview. SVG is excluded because it can carry script.
+     *
+     * @param string $contenttype Upstream Content-Type.
+     * @return bool
+     */
+    public static function is_safe_inline_image_content_type(string $contenttype): bool {
+        $cleaned = strtolower(self::sanitise_header_value($contenttype));
+        $semi = strpos($cleaned, ';');
+        if ($semi !== false) {
+            $cleaned = trim(substr($cleaned, 0, $semi));
+        }
+
+        return in_array(
+            $cleaned,
+            ['image/png', 'image/jpeg', 'image/gif', 'image/webp'],
+            true
+        );
+    }
+
+    /**
+     * Strip CR/LF and other ASCII control characters from a header value so it
+     * cannot inject additional response headers.
+     *
+     * @param string $value Raw value (typically from an upstream response).
+     * @return string
+     */
+    public static function sanitise_header_value(string $value): string {
+        $cleaned = preg_replace('/[\x00-\x1F\x7F]/', '', $value);
+
+        return trim((string) $cleaned);
+    }
+
+    /**
+     * Map an upstream Content-Type to a safe value for the proxied response.
+     *
+     * Any type that is not on the inline-safe allow-list (image/png,
+     * image/jpeg, image/gif, image/webp, application/pdf) becomes
+     * application/octet-stream, which the browser will treat as a download
+     * rather than render. SVG, HTML, JS, XML, plain text are all caught.
+     *
+     * @param string $upstream Upstream Content-Type header value.
+     * @return string
+     */
+    public static function safe_response_content_type(string $upstream): string {
+        $cleaned = self::sanitise_header_value($upstream);
+        $cleaned = strtolower($cleaned);
+        $semi = strpos($cleaned, ';');
+        if ($semi !== false) {
+            $cleaned = trim(substr($cleaned, 0, $semi));
+        }
+
+        return in_array($cleaned, self::SAFE_INLINE_CONTENT_TYPES, true)
+            ? $cleaned
+            : 'application/octet-stream';
+    }
+
+    /**
+     * Build a Content-Disposition: attachment header from a server-known
+     * filename. Always forces "attachment" so the browser downloads rather
+     * than rendering. Sanitises the filename, falls back to a generic name
+     * when none is known, and emits both a quoted ASCII form and an RFC 5987
+     * encoded filename* so non-ASCII names are preserved.
+     *
+     * @param string $filename Filename recorded on the manifest row.
+     * @return string
+     */
+    public static function build_content_disposition(string $filename): string {
+        $basename = basename(self::sanitise_header_value($filename));
+        $basename = preg_replace('#[\\\\/]#', '', $basename);
+        $basename = trim((string) $basename);
+        if ($basename === '') {
+            $basename = 'attachment';
+        }
+
+        $asciiform = preg_replace('/[^\x20-\x7E]/', '_', $basename);
+        $asciiform = str_replace(['\\', '"'], '_', (string) $asciiform);
+        $rfc5987 = rawurlencode($basename);
+
+        return sprintf(
+            'attachment; filename="%s"; filename*=UTF-8\'\'%s',
+            $asciiform,
+            $rfc5987
+        );
     }
 
     /**
