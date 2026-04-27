@@ -148,6 +148,28 @@ final class zendesk_service {
     }
 
     /**
+     * Suspend a remote Zendesk end user.
+     *
+     * Used by the user_deleted observer to prevent a future Moodle user with
+     * the same email from inheriting the deleted user's Zendesk record via
+     * users/create_or_update's email-based upsert (security review F13).
+     *
+     * @param int $zendeskuserid Zendesk-side user id.
+     * @return void
+     */
+    public function suspend_remote_user(int $zendeskuserid): void {
+        $this->assert_ready();
+
+        if ($zendeskuserid <= 0) {
+            throw new \invalid_parameter_exception('Zendesk user id must be positive.');
+        }
+
+        $this->request('PUT', '/users/' . $zendeskuserid . '.json', [
+            'user' => ['suspended' => true],
+        ]);
+    }
+
+    /**
      * Submit a new ticket to Zendesk.
      *
      * @param int $userid Moodle user id.

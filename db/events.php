@@ -15,7 +15,7 @@
 // along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
 
 /**
- * Plugin version metadata.
+ * Event observer registrations for local_zendesk.
  *
  * @package    local_zendesk
  * @copyright  2026 David Ta <david.ta@saylor.org>
@@ -24,9 +24,9 @@
 
 defined('MOODLE_INTERNAL') || die();
 
-$plugin->component = 'local_zendesk';
-$plugin->version = 2026042716;
-$plugin->requires = 2024100700;
-$plugin->supported = [405, 405];
-$plugin->maturity = MATURITY_BETA;
-$plugin->release = '0.3.0';
+$observers = [
+    [
+        'eventname' => '\core\event\user_deleted',
+        'callback' => '\local_zendesk\local\observer\user_lifecycle::user_deleted',
+    ],
+];

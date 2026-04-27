@@ -191,6 +191,7 @@ $string['supportreplyauthor'] = 'Help desk';
 $string['supportreplyinitial'] = 'HD';
 $string['syncbatchsize'] = 'Sync batch size';
 $string['syncbatchsize_desc'] = 'Maximum number of tickets to refresh during each scheduled task run.';
+$string['tasksuspendzendeskuser'] = 'Suspend Zendesk end user after Moodle user deletion';
 $string['tasksynctickets'] = 'Sync Zendesk ticket statuses';
 $string['ticketformid'] = 'Default ticket form ID';
 $string['ticketformid_desc'] = 'Optional Zendesk ticket form ID to apply to new tickets.';

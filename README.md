@@ -186,6 +186,58 @@ This plugin registers a scheduled task to refresh Zendesk ticket statuses and re
 - If the Help Center button appears but SSO does not complete, re-check the JWT shared secret and the Zendesk remote login/logout configuration.
 - If the Zendesk sidebar app cannot load Moodle context, verify the Moodle web-service token, the authorised user, and the external service permissions.
 
+## Identity model and lifecycle
+
+The plugin links a Moodle user to a Zendesk end user with a stable external ID of the form `mdl:<instance_uuid>:user:<moodleuserid>`, where `<instance_uuid>` is generated once at install time (`db/install.php`) and never regenerated. The mapping itself lives in `local_zendesk_usermap`.
+
+Lifecycle behaviour:
+
+- **New Moodle user**: no Zendesk record is created until the user submits a request. On first submission the plugin calls `users/create_or_update`, which keys on the external ID first and the email second.
+- **Email change in Moodle**: the next interaction sends the new email to Zendesk under the same external ID. Zendesk updates the existing user record in place.
+- **Moodle user deleted**: the plugin's `\core\event\user_deleted` observer queues a `suspend_zendesk_user` adhoc task. When cron runs the task it sets `suspended: true` on the matching Zendesk user, then removes the local mapping row. This prevents a future Moodle user with the same email from accidentally inheriting the deleted user's Zendesk record via the email-based upsert.
+- **Privacy delete (GDPR)**: the privacy provider removes the local mapping and ticket-attachment manifest. Zendesk-side records are not deleted by this path; if you need them removed or anonymised, do so via Zendesk's user-deletion endpoint or the Zendesk admin UI.
+
+If you need to manually anonymise or delete a Zendesk record for an end user (for example after a GDPR request), do so through Zendesk's standard tooling rather than the Moodle admin UI; the plugin does not currently expose a manual Zendesk-side delete.
+
+## Operational runbook
+
+### Rotating the Zendesk API token
+
+The Zendesk API token is stored in plain text in `mdl_config_plugins` (the standard Moodle pattern for `admin_setting_configpasswordunmask`). Rotate the token on a schedule (90–180 days is a reasonable default) and after any suspected compromise.
+
+1. In Zendesk, go to `Admin Center > Apps and integrations > Zendesk API > API token`.
+2. Generate a new token for the Moodle service account.
+3. In Moodle, open `Site administration > Plugins > Local plugins > Zendesk support integration`.
+4. Paste the new token into `Zendesk API token` and save.
+5. Verify the integration: submit a test ticket as a non-admin student, or run `Site administration > Server > Scheduled tasks > Sync Zendesk ticket statuses` once.
+6. In Zendesk, revoke the old token.
+
+### Rotating the JWT shared secret
+
+The JWT shared secret is also stored in plain text in `mdl_config_plugins`. Rotate alongside the API token.
+
+1. In Zendesk, go to the JWT SSO configuration for end users.
+2. Generate a new shared secret.
+3. In Moodle, paste the new secret into `Zendesk JWT shared secret` and save.
+4. Test SSO with a non-admin student account before retiring the old secret.
+5. In Zendesk, retire the old secret.
+
+### Backup encryption expectation
+
+Because plugin secrets live in plain text in `mdl_config_plugins`, anyone with read access to the Moodle database or its backups can recover them. The hosting provider should:
+
+- Encrypt database backups at rest.
+- Restrict backup-read permissions to the operators who genuinely need them.
+- Audit the list of admins with `tool_dbaccess`-style direct-DB access.
+
+### Disabling / decommissioning the integration
+
+To stop the integration cleanly:
+
+1. Untick `Enable Zendesk integration` in plugin settings. This is now a real kill switch (the agent-context external function and the scheduled task both check it).
+2. If you used the Zendesk sidebar app, revoke the Moodle web-service token at `Site administration > Server > Web services > Manage tokens` so the Zendesk side cannot keep calling Moodle.
+3. If you want to remove the data, run `Site administration > Plugins > Local plugins > Zendesk support integration > Uninstall` after confirming the privacy provider's cascade is acceptable for your tenancy.
+
 ## Privacy
 
 This plugin stores Moodle-to-Zendesk user mappings and Moodle-managed Zendesk ticket metadata in Moodle. It also sends user and ticket data to Zendesk so support requests can be created and tracked. A Privacy API provider is included.
