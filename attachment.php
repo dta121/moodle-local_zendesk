@@ -55,5 +55,9 @@ if (!empty($attachment['contentdisposition'])) {
     header('Content-Disposition: ' . zendesk_service::sanitise_header_value((string) $attachment['contentdisposition']));
 }
 
-echo $attachment['body'];
+// Stream the body from the request-scoped temp file rather than echoing a
+// buffered string, so even a 100 MB attachment does not balloon PHP memory.
+// The file lives in make_request_directory() and is cleaned up automatically
+// at the end of the request.
+readfile($attachment['filepath']);
 die;

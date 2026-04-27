@@ -33,6 +33,7 @@ $string['apitoken'] = 'Zendesk API token';
 $string['apitoken_desc'] = 'Store the Zendesk API token here. It is never exposed to the browser.';
 $string['attachmentdownloadfailed'] = 'Zendesk attachment download failed: {$a}';
 $string['attachmentfile'] = 'Attachment';
+$string['attachmenttoolarge'] = 'The Zendesk attachment is too large to be downloaded through Moodle.';
 $string['backtorequests'] = 'Back to requests';
 $string['brandid'] = 'Default brand ID';
 $string['brandid_desc'] = 'Optional Zendesk brand ID for new tickets.';

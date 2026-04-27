@@ -49,6 +49,13 @@ final class zendesk_service {
         'application/pdf',
     ];
 
+    /**
+     * Hard cap for proxied attachment bodies. The progress callback aborts a
+     * cURL transfer that exceeds this in-flight; CURLOPT_MAXFILESIZE handles
+     * the case where the upstream advertises Content-Length up front.
+     */
+    private const MAX_ATTACHMENT_BYTES = 104857600;
+
     /** @var ticket_repository */
     private $repository;
 
@@ -441,7 +448,7 @@ final class zendesk_service {
         $upstream = $this->download_remote_asset((string) $manifest->remoteurl);
 
         return [
-            'body' => $upstream['body'],
+            'filepath' => $upstream['filepath'],
             'contenttype' => self::safe_response_content_type((string) $upstream['contenttype']),
             'contentlength' => $upstream['contentlength'],
             'contentdisposition' => self::build_content_disposition((string) $manifest->filename),
@@ -1213,26 +1220,66 @@ final class zendesk_service {
     }
 
     /**
-     * Download a Zendesk-hosted binary asset.
+     * Stream a Zendesk-hosted binary asset to a request-scoped temp file.
+     *
+     * The caller (attachment.php) reads from the returned filepath via
+     * readfile() so the body never lives in PHP memory in full. The download
+     * is bounded by MAX_ATTACHMENT_BYTES via two layers of defence:
+     *
+     * - CURLOPT_MAXFILESIZE rejects up front when the upstream advertises a
+     *   Content-Length larger than the cap.
+     * - CURLOPT_PROGRESSFUNCTION aborts in-flight when the running byte count
+     *   exceeds the cap (handles Content-Length-less / dishonest responses).
+     *
+     * After the transfer the effective URL is re-checked against the
+     * configured Zendesk subdomain, so a redirect that hops off the
+     * Help-Center host cannot smuggle data through. CURLOPT_UNRESTRICTED_AUTH
+     * is explicitly disabled so the Basic-auth service-account token is never
+     * forwarded to a redirected origin.
      *
      * @param string $url Remote asset URL.
      * @return array
      */
     private function download_remote_asset(string $url): array {
-        $curl = $this->build_authenticated_curl();
-        $body = $curl->get($url, [], [
-            'CURLOPT_TIMEOUT' => 20,
-            'CURLOPT_CONNECTTIMEOUT' => 10,
+        global $CFG;
+
+        require_once($CFG->libdir . '/filelib.php');
+
+        $maxsize = self::MAX_ATTACHMENT_BYTES;
+        $tmpdir = make_request_directory();
+        $tmppath = $tmpdir . '/zendesk-attachment-' . bin2hex(random_bytes(8));
+
+        $curl = $this->build_authenticated_curl(['Accept: */*']);
+        $curl->setopt([
             'CURLOPT_FOLLOWLOCATION' => 1,
             'CURLOPT_MAXREDIRS' => 5,
+            'CURLOPT_MAXFILESIZE' => $maxsize,
+            'CURLOPT_UNRESTRICTED_AUTH' => 0,
+            'CURLOPT_NOPROGRESS' => 0,
+            'CURLOPT_PROGRESSFUNCTION' => static function ($ch, $dltotal, $dlnow) use ($maxsize) {
+                return $dlnow > $maxsize ? 1 : 0;
+            },
         ]);
-        $status = $this->get_curl_http_status($curl);
+
+        $curl->download_one($url, [], [
+            'filepath' => $tmppath,
+            'CURLOPT_TIMEOUT' => 60,
+            'CURLOPT_CONNECTTIMEOUT' => 10,
+        ]);
+
         if ($this->has_curl_error($curl)) {
             throw new \RuntimeException(
                 $this->get_curl_error_text($curl, 'Zendesk attachment request failed.')
             );
         }
 
+        $info = $curl->get_info();
+        $effectiveurl = (string) ($info['url'] ?? '');
+        if ($effectiveurl !== '' && !$this->is_proxyable_zendesk_url($effectiveurl)) {
+            throw new \moodle_exception('invalidattachmenturl', constants::COMPONENT);
+        }
+
+        $status = $this->get_curl_http_status($curl);
         if ($status >= 400) {
             throw new \moodle_exception(
                 'attachmentdownloadfailed',
@@ -1243,12 +1290,24 @@ final class zendesk_service {
             );
         }
 
+        if (!is_file($tmppath)) {
+            throw new \RuntimeException('Zendesk attachment download produced no payload.');
+        }
+
         $headers = $this->normalise_response_headers($curl->getResponse());
+        $bytesondisk = (int) filesize($tmppath);
+        if ($bytesondisk > $maxsize) {
+            throw new \moodle_exception('attachmenttoolarge', constants::COMPONENT);
+        }
+
+        $contentlength = !empty($headers['content-length'])
+            ? (int) $headers['content-length']
+            : $bytesondisk;
 
         return [
-            'body' => $body,
+            'filepath' => $tmppath,
             'contenttype' => $headers['content-type'] ?? 'application/octet-stream',
-            'contentlength' => !empty($headers['content-length']) ? (int) $headers['content-length'] : null,
+            'contentlength' => $contentlength,
             'contentdisposition' => $headers['content-disposition'] ?? '',
         ];
     }
