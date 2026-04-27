@@ -313,6 +313,17 @@ final class jwt_sso_service {
             return '';
         }
 
+        // Reject "." and ".." path segments (including percent-encoded variants
+        // such as %2e%2e). The /hc/ prefix check alone is satisfied by inputs
+        // like /hc/../something and /hc/%2e%2e/something, which Zendesk could
+        // re-resolve to a location outside the Help Center namespace.
+        $decodedpath = rawurldecode($path);
+        foreach (explode('/', $decodedpath) as $segment) {
+            if ($segment === '.' || $segment === '..') {
+                return '';
+            }
+        }
+
         $validated = $path;
         if (!empty($parts['query'])) {
             $validated .= '?' . $parts['query'];

@@ -102,6 +102,42 @@ final class jwt_sso_service_test extends \advanced_testcase {
     }
 
     /**
+     * Provide path-traversal inputs that the validator must reject.
+     *
+     * @return array
+     */
+    public static function traversal_return_to_provider(): array {
+        return [
+            'literal dot dot in /hc/ path' => ['/hc/../etc'],
+            'percent-encoded dot dot at start' => ['/hc/%2e%2e/etc'],
+            'percent-encoded dot dot mixed case' => ['/hc/%2E%2E/etc'],
+            'literal dot dot mid-path' => ['/hc/en-us/../requests'],
+            'single dot segment' => ['/hc/./requests'],
+            'percent-encoded single dot' => ['/hc/%2e/requests'],
+            'trailing dot dot' => ['/hc/en-us/..'],
+        ];
+    }
+
+    /**
+     * Test that path-traversal style return URLs are rejected.
+     *
+     * The original validator only checked the /hc/ prefix on the raw path,
+     * so inputs like /hc/../etc and /hc/%2e%2e/etc satisfied the check while
+     * resolving (after Zendesk normalisation) to locations outside the Help
+     * Center namespace.
+     *
+     * @dataProvider traversal_return_to_provider
+     * @param string $returnto Candidate return target.
+     * @return void
+     */
+    public function test_resolve_return_to_rejects_traversal(string $returnto): void {
+        $this->expectException(\moodle_exception::class);
+
+        $service = new jwt_sso_service();
+        $service->resolve_return_to($returnto, null);
+    }
+
+    /**
      * Test that tokens are generated as standard three-part JWTs.
      *
      * @return void
