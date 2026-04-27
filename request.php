@@ -36,11 +36,30 @@ require_capability('local/zendesk:submitrequest', $context);
 $courseid = optional_param('courseid', 0, PARAM_INT);
 $contextid = optional_param('contextid', 0, PARAM_INT);
 
-if ($courseid > 0 && !$DB->record_exists('course', ['id' => $courseid])) {
-    $courseid = 0;
+// Drop courseid silently if the caller cannot view that course. Without this
+// check a tampered URL parameter would be accepted purely on existence and
+// then serialised into the Zendesk ticket as a "moodle_course_<id>" tag,
+// polluting downstream routing and reporting.
+if ($courseid > 0) {
+    if (!$DB->record_exists('course', ['id' => $courseid])) {
+        $courseid = 0;
+    } else {
+        $coursecontext = context_course::instance($courseid, IGNORE_MISSING);
+        if (!$coursecontext || !has_capability('moodle/course:view', $coursecontext)) {
+            $courseid = 0;
+        }
+    }
 }
-if ($contextid > 0 && !$DB->record_exists('context', ['id' => $contextid])) {
-    $contextid = 0;
+
+// Same idea for contextid: it must exist and the caller must have at least
+// read-style access at it. moodle/course:view resolves at any context level
+// (system, course category, course, module, block) and is the permissive but
+// non-trivial gate used elsewhere for "can this user see something here?".
+if ($contextid > 0) {
+    $ticketcontext = context::instance_by_id($contextid, IGNORE_MISSING);
+    if (!$ticketcontext || !has_capability('moodle/course:view', $ticketcontext)) {
+        $contextid = 0;
+    }
 }
 
 $url = new moodle_url('/local/zendesk/request.php', ['courseid' => $courseid, 'contextid' => $contextid]);
