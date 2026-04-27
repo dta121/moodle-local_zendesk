@@ -71,9 +71,8 @@ if ($data = $form->get_data()) {
 
         redirect(new moodle_url('/local/zendesk/view.php', ['id' => $ticket->id]), $message, null, $type);
     } catch (Throwable $e) {
-        $notification = $e instanceof moodle_exception
-            ? $e->getMessage()
-            : get_string('requestsubmissionfailed', 'local_zendesk');
+        debugging('[local_zendesk] Request submission failed: ' . $e->getMessage(), DEBUG_DEVELOPER);
+        $notification = get_string('requestsubmissionfailed', 'local_zendesk');
     }
 }
 

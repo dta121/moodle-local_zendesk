@@ -271,7 +271,7 @@ final class zendesk_service {
         $record = $this->repository->get_ticket($ticketid);
         $this->assert_ticket_access($record, $userid, $canviewall);
 
-        $ticket = $this->format_ticket_for_output($record, true);
+        $ticket = $this->format_ticket_for_output($record, true, $canviewall);
         $ticket['messageheading'] = get_string('messageheading', constants::COMPONENT);
         $ticket['repliesheading'] = get_string('conversationheading', constants::COMPONENT);
         $ticket['norepliesyet'] = get_string('norepliesyet', constants::COMPONENT);
@@ -772,11 +772,28 @@ final class zendesk_service {
      *
      * @param \stdClass $ticket Ticket record.
      * @param bool $includedetail Whether to include full body html.
+     * @param bool $canviewerrordetail Whether to surface raw upstream error
+     *                                 text (capability-gated). End users get a
+     *                                 generic message; admins/agents with
+     *                                 viewallrequests can see the upstream
+     *                                 detail for triage.
      * @return array
      */
-    private function format_ticket_for_output(\stdClass $ticket, bool $includedetail = false): array {
+    private function format_ticket_for_output(
+        \stdClass $ticket,
+        bool $includedetail = false,
+        bool $canviewerrordetail = false
+    ): array {
         $statuslabel = $this->get_status_label($ticket);
         $bodyhtml = format_text($ticket->body, FORMAT_PLAIN);
+        $rawerror = trim((string) ($ticket->submissionerror ?? ''));
+        $haserror = $rawerror !== '';
+        $errortext = '';
+        if ($haserror) {
+            $errortext = $canviewerrordetail
+                ? $rawerror
+                : get_string('submissionerrorgeneric', constants::COMPONENT);
+        }
 
         return [
             'id' => (int) $ticket->id,
@@ -795,8 +812,8 @@ final class zendesk_service {
             'viewurl' => (new \moodle_url('/local/zendesk/view.php', ['id' => $ticket->id]))->out(false),
             'zendeskticketid' => !empty($ticket->zendesk_ticket_id) ? (int) $ticket->zendesk_ticket_id : null,
             'haszendeskticketid' => !empty($ticket->zendesk_ticket_id),
-            'submissionerror' => $ticket->submissionerror ?? '',
-            'haserror' => !empty($ticket->submissionerror),
+            'submissionerror' => $errortext,
+            'haserror' => $haserror,
         ];
     }
 

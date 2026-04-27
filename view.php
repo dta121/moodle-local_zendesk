@@ -76,9 +76,8 @@ if (!empty($ticket['hasreplyform'])) {
 
             redirect($redirecturl, $message, null, \core\output\notification::NOTIFY_SUCCESS);
         } catch (Throwable $e) {
-            $notification = $e instanceof moodle_exception
-                ? $e->getMessage()
-                : get_string('replysubmissionfailed', 'local_zendesk');
+            debugging('[local_zendesk] Reply submission failed: ' . $e->getMessage(), DEBUG_DEVELOPER);
+            $notification = get_string('replysubmissionfailed', 'local_zendesk');
         }
     }
 

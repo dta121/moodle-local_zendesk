@@ -175,6 +175,7 @@ $string['subdomain'] = 'Zendesk subdomain';
 $string['subdomain_desc'] = 'Enter the Zendesk subdomain only, for example "myorganisation" for myorganisation.zendesk.com.';
 $string['subdomaininvalid'] = 'The Zendesk subdomain must be a clean DNS label (lowercase letters, digits, and hyphens only). You can paste a full https://myorg.zendesk.com URL and it will be normalised.';
 $string['subject'] = 'Subject';
+$string['submissionerrorgeneric'] = 'We had trouble syncing this request with the help desk. A site administrator can review the details.';
 $string['submissionpendingconfirmation'] = 'Your request is being confirmed with Zendesk. Status updates will appear shortly.';
 $string['submitrequestbutton'] = 'Submit request';
 $string['supportreplyauthor'] = 'Help desk';
