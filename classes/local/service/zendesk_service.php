@@ -1057,7 +1057,10 @@ final class zendesk_service {
             $basename = 'attachment';
         }
 
-        $asciiform = preg_replace('/[^\x20-\x7E]/', '_', $basename);
+        // Collapse runs of non-printable / non-ASCII bytes to a single underscore
+        // so a multibyte filename yields one underscore per character rather
+        // than one per byte. Quotes and backslashes break the quoted form.
+        $asciiform = preg_replace('/[^\x20-\x7E]+/', '_', $basename);
         $asciiform = str_replace(['\\', '"'], '_', (string) $asciiform);
         $rfc5987 = rawurlencode($basename);
 
