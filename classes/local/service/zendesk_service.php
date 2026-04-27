@@ -660,7 +660,7 @@ final class zendesk_service {
         $wrapperid = 'local-zendesk-comment-root';
         $loaded = $document->loadHTML(
             '<?xml encoding="utf-8" ?><div id="' . $wrapperid . '">' . $html . '</div>',
-            LIBXML_HTML_NOIMPLIED | LIBXML_HTML_NODEFDTD
+            LIBXML_HTML_NOIMPLIED | LIBXML_HTML_NODEFDTD | LIBXML_NONET
         );
         libxml_clear_errors();
         libxml_use_internal_errors($previousstate);
