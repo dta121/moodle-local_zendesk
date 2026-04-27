@@ -34,7 +34,7 @@ if ($hassiteconfig) {
         0
     ));
 
-    $settings->add(new admin_setting_configtext(
+    $settings->add(new \local_zendesk\admin\admin_setting_configtext_subdomain(
         'local_zendesk/subdomain',
         get_string('subdomain', 'local_zendesk'),
         get_string('subdomain_desc', 'local_zendesk'),
