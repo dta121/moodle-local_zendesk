@@ -47,7 +47,7 @@ $notificationtype = 'danger';
 
 try {
     $ticket = $service->get_request_for_user($id, $USER->id, $canviewall);
-} catch (dml_missing_record_exception $e) {
+} catch (dml_missing_record_exception | required_capability_exception $e) {
     throw new moodle_exception('invalidticketid', 'local_zendesk');
 }
 
