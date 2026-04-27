@@ -1609,7 +1609,9 @@ final class zendesk_service {
     }
 
     /**
-     * Get or generate a plugin instance UUID.
+     * Read the plugin instance UUID seeded at install/upgrade time
+     * (security review F12). Treated as immutable at runtime so concurrent
+     * first-hit requests cannot race and produce two different UUIDs.
      *
      * @return string
      */
@@ -1619,10 +1621,9 @@ final class zendesk_service {
             return $config->instanceuuid;
         }
 
-        $uuid = $this->generate_uuid();
-        set_config('instanceuuid', $uuid, constants::COMPONENT);
-
-        return $uuid;
+        throw new \coding_exception(
+            'local_zendesk instance UUID is not initialised; run admin/cli/upgrade.php to seed it.'
+        );
     }
 
     /**

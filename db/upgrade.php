@@ -58,5 +58,16 @@ function xmldb_local_zendesk_upgrade($oldversion) {
         upgrade_plugin_savepoint(true, 2026042708, 'local', 'zendesk');
     }
 
+    if ($oldversion < 2026042715) {
+        // Seed instanceuuid on existing installs so we can drop the lazy
+        // generate-and-write fallback in the service layer (security review
+        // F12). Idempotent: skips when a UUID is already configured.
+        if (trim((string) get_config('local_zendesk', 'instanceuuid')) === '') {
+            set_config('instanceuuid', \core\uuid::generate(), 'local_zendesk');
+        }
+
+        upgrade_plugin_savepoint(true, 2026042715, 'local', 'zendesk');
+    }
+
     return true;
 }

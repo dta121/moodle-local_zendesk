@@ -390,33 +390,24 @@ final class jwt_sso_service {
     }
 
     /**
-     * Get or generate the plugin instance UUID.
+     * Read the plugin instance UUID. The value is seeded at install time by
+     * db/install.php and re-seeded for existing installs by db/upgrade.php
+     * (security review F12), so the lazy generate-and-write fallback that
+     * used to live here has been removed; the value is treated as immutable
+     * at runtime to prevent two concurrent first-hit requests from racing on
+     * set_config and silently invalidating Zendesk external_ids.
      *
      * @return string
      */
     private function get_instance_uuid(): string {
-        $config = $this->get_config();
-        if (!empty($config->instanceuuid)) {
-            return $config->instanceuuid;
+        $uuid = trim((string) get_config(constants::COMPONENT, 'instanceuuid'));
+        if ($uuid === '') {
+            throw new \coding_exception(
+                'local_zendesk instance UUID is not initialised; run admin/cli/upgrade.php to seed it.'
+            );
         }
 
-        $uuid = $this->generate_uuid();
-        set_config('instanceuuid', $uuid, constants::COMPONENT);
-
         return $uuid;
-    }
-
-    /**
-     * Generate a RFC4122-compatible UUIDv4.
-     *
-     * @return string
-     */
-    private function generate_uuid(): string {
-        $data = random_bytes(16);
-        $data[6] = chr((ord($data[6]) & 0x0f) | 0x40);
-        $data[8] = chr((ord($data[8]) & 0x3f) | 0x80);
-
-        return vsprintf('%s%s-%s-%s-%s-%s%s%s', str_split(bin2hex($data), 4));
     }
 
     /**

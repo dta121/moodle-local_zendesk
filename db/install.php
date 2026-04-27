@@ -15,18 +15,25 @@
 // along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
 
 /**
- * Plugin version metadata.
+ * Install hook for local_zendesk.
+ *
+ * Seeds the instanceuuid setting so the value is fixed at install time and
+ * cannot race between two concurrent first-hit requests on the front end
+ * (security review F12). Subsequent upgrades and runtime callers treat this
+ * value as immutable.
  *
  * @package    local_zendesk
  * @copyright  2026 David Ta <david.ta@saylor.org>
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
-defined('MOODLE_INTERNAL') || die();
-
-$plugin->component = 'local_zendesk';
-$plugin->version = 2026042715;
-$plugin->requires = 2024100700;
-$plugin->supported = [405, 405];
-$plugin->maturity = MATURITY_BETA;
-$plugin->release = '0.3.0';
+/**
+ * Run on fresh install of local_zendesk.
+ *
+ * @return void
+ */
+function xmldb_local_zendesk_install(): void {
+    if (trim((string) get_config('local_zendesk', 'instanceuuid')) === '') {
+        set_config('instanceuuid', \core\uuid::generate(), 'local_zendesk');
+    }
+}
