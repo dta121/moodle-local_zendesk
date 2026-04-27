@@ -77,8 +77,12 @@ final class jwt_sso_service {
             throw new \moodle_exception('missingemail', constants::COMPONENT);
         }
 
+        $now = time();
+
         return [
-            'iat' => time(),
+            'iat' => $now,
+            'nbf' => $now,
+            'exp' => $now + 60,
             'jti' => bin2hex(random_bytes(16)),
             'name' => fullname($user),
             'email' => (string) $user->email,
@@ -95,7 +99,7 @@ final class jwt_sso_service {
     public function build_token(array $claims): string {
         $this->assert_ready();
 
-        foreach (['iat', 'jti', 'name', 'email', 'external_id'] as $requiredclaim) {
+        foreach (['iat', 'nbf', 'exp', 'jti', 'name', 'email', 'external_id'] as $requiredclaim) {
             if (!array_key_exists($requiredclaim, $claims)) {
                 throw new \coding_exception('Missing required JWT claim: ' . $requiredclaim);
             }

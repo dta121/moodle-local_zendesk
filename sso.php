@@ -63,6 +63,11 @@ $PAGE->set_cacheable(false);
 $PAGE->set_title(get_string('openhelpcenter', 'local_zendesk'));
 $PAGE->set_heading(get_string('openhelpcenter', 'local_zendesk'));
 
+// Block iframing of the SSO page so a clickjacking attacker cannot force a
+// silent JWT submission to Zendesk on behalf of the authenticated user.
+header('X-Frame-Options: DENY');
+header("Content-Security-Policy: frame-ancestors 'none'");
+
 $templatecontext = [
     'formid' => 'local-zendesk-sso-form',
     'formaction' => $service->get_zendesk_jwt_endpoint(),

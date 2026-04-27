@@ -66,13 +66,19 @@ final class jwt_sso_service_test extends \advanced_testcase {
         $service = new jwt_sso_service();
         $claims = $service->build_claims($user);
 
-        $this->assertSame(['iat', 'jti', 'name', 'email', 'external_id'], array_keys($claims));
+        $this->assertSame(
+            ['iat', 'nbf', 'exp', 'jti', 'name', 'email', 'external_id'],
+            array_keys($claims)
+        );
         $this->assertSame('Zendesk Student', $claims['name']);
         $this->assertSame('student@example.com', $claims['email']);
         $this->assertSame(
             'mdl:aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee:user:' . $user->id,
             $claims['external_id']
         );
+        $this->assertSame($claims['iat'], $claims['nbf']);
+        $this->assertSame($claims['iat'] + 60, $claims['exp']);
+        $this->assertGreaterThanOrEqual(time() - 5, $claims['iat']);
     }
 
     /**
