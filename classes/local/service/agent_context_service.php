@@ -49,6 +49,12 @@ final class agent_context_service {
     /**
      * Get Moodle context data for a Zendesk requester.
      *
+     * Identity is resolved exclusively through the local_zendesk_usermap table,
+     * which is populated when Moodle creates or updates the matching Zendesk
+     * user. We never parse a Moodle user id out of the supplied external id and
+     * never fall back to email-only lookup, because both paths previously let a
+     * caller enumerate Moodle accounts (security review F1).
+     *
      * @param string|null $externalid Zendesk external id.
      * @param string|null $email Zendesk requester email.
      * @return array
@@ -65,14 +71,7 @@ final class agent_context_service {
             throw new \invalid_parameter_exception(get_string('agentcontextinvalidemail', constants::COMPONENT));
         }
 
-        $user = null;
-        if ($externalid !== '') {
-            $user = $this->find_user_by_external_id($externalid);
-        }
-
-        if (!$user && $email !== '') {
-            $user = $this->find_user_by_email($email);
-        }
+        $user = $externalid !== '' ? $this->find_user_via_usermap($externalid, $email) : null;
 
         if (!$user) {
             throw new \moodle_exception('agentcontextnotfound', constants::COMPONENT);
@@ -82,38 +81,29 @@ final class agent_context_service {
     }
 
     /**
-     * Find a Moodle user by the Zendesk external id.
+     * Resolve a Moodle user from a Zendesk external id via the local mapping.
+     *
+     * If an email is also supplied, it must match the zendesk_email recorded on
+     * the matching usermap row (case-insensitive); a mismatch is treated as
+     * "not found" so a caller cannot probe combinations of external id and
+     * arbitrary email.
      *
      * @param string $externalid Zendesk external id.
+     * @param string $email Optional Zendesk requester email; '' to skip the
+     *                      email cross-check.
      * @return \stdClass|null
      */
-    private function find_user_by_external_id(string $externalid): ?\stdClass {
+    private function find_user_via_usermap(string $externalid, string $email): ?\stdClass {
         $map = $this->db->get_record('local_zendesk_usermap', ['zendesk_external_id' => $externalid]);
-        if ($map) {
-            return $this->db->get_record('user', ['id' => $map->userid, 'deleted' => 0]) ?: null;
-        }
-
-        $userid = $this->parse_userid_from_external_id($externalid);
-        if ($userid <= 0) {
+        if (!$map) {
             return null;
         }
 
-        return $this->db->get_record('user', ['id' => $userid, 'deleted' => 0]) ?: null;
-    }
+        if ($email !== '' && strcasecmp((string) $map->zendesk_email, $email) !== 0) {
+            return null;
+        }
 
-    /**
-     * Find a Moodle user by email address.
-     *
-     * @param string $email Email address.
-     * @return \stdClass|null
-     */
-    private function find_user_by_email(string $email): ?\stdClass {
-        $sql = "SELECT *
-                  FROM {user}
-                 WHERE deleted = 0
-                   AND " . $this->db->sql_equal('email', ':email', false, true);
-
-        return $this->db->get_record_sql($sql, ['email' => $email]) ?: null;
+        return $this->db->get_record('user', ['id' => $map->userid, 'deleted' => 0]) ?: null;
     }
 
     /**
@@ -349,21 +339,6 @@ final class agent_context_service {
      */
     private function clean_location_part($value): string {
         return clean_param(trim((string) $value), PARAM_TEXT);
-    }
-
-    /**
-     * Parse a Moodle user id from a Zendesk external id.
-     *
-     * @param string $externalid External id from Zendesk.
-     * @return int
-     */
-    private function parse_userid_from_external_id(string $externalid): int {
-        $pattern = '#^mdl:' . preg_quote($this->get_instance_uuid(), '#') . ':user:(\d+)$#';
-        if (!preg_match($pattern, trim($externalid), $matches)) {
-            return 0;
-        }
-
-        return (int) ($matches[1] ?? 0);
     }
 
     /**
