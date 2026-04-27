@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8" ?>
-<XMLDB PATH="local/zendesk/db" VERSION="2026033100" COMMENT="XMLDB file for local_zendesk"
+<XMLDB PATH="local/zendesk/db" VERSION="2026042708" COMMENT="XMLDB file for local_zendesk"
     xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
     xsi:noNamespaceSchemaLocation="../../../lib/xmldb/xmldb.xsd">
   <TABLES>
@@ -59,6 +59,25 @@
         <INDEX NAME="zendeskexternalid_uix" UNIQUE="true" FIELDS="zendesk_ticket_external_id"/>
         <INDEX NAME="userid_idx" UNIQUE="false" FIELDS="userid"/>
         <INDEX NAME="syncstate_idx" UNIQUE="false" FIELDS="syncstate"/>
+      </INDEXES>
+    </TABLE>
+    <TABLE NAME="local_zendesk_ticket_attachment" COMMENT="Manifest of Zendesk-hosted attachment URLs the plugin is allowed to proxy on behalf of a specific local ticket">
+      <FIELDS>
+        <FIELD NAME="id" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="true"/>
+        <FIELD NAME="localticketid" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false"/>
+        <FIELD NAME="urlhash" TYPE="char" LENGTH="64" NOTNULL="true" SEQUENCE="false"/>
+        <FIELD NAME="remoteurl" TYPE="text" LENGTH="big" NOTNULL="true" SEQUENCE="false"/>
+        <FIELD NAME="filename" TYPE="char" LENGTH="255" NOTNULL="false" SEQUENCE="false"/>
+        <FIELD NAME="contenttype" TYPE="char" LENGTH="128" NOTNULL="false" SEQUENCE="false"/>
+        <FIELD NAME="filesize" TYPE="int" LENGTH="10" NOTNULL="false" SEQUENCE="false"/>
+        <FIELD NAME="timecreated" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false"/>
+      </FIELDS>
+      <KEYS>
+        <KEY NAME="primary" TYPE="primary" FIELDS="id"/>
+        <KEY NAME="localticketid_fk" TYPE="foreign" FIELDS="localticketid" REFTABLE="local_zendesk_ticket" REFFIELDS="id"/>
+      </KEYS>
+      <INDEXES>
+        <INDEX NAME="ticketurl_uix" UNIQUE="true" FIELDS="localticketid, urlhash"/>
       </INDEXES>
     </TABLE>
   </TABLES>

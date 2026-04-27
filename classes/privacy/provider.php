@@ -82,6 +82,16 @@ final class provider implements
             'timemodified' => 'privacy:metadata:local_zendesk_ticket:timemodified',
         ], 'privacy:metadata:local_zendesk_ticket');
 
+        $collection->add_database_table('local_zendesk_ticket_attachment', [
+            'localticketid' => 'privacy:metadata:local_zendesk_ticket_attachment:localticketid',
+            'urlhash' => 'privacy:metadata:local_zendesk_ticket_attachment:urlhash',
+            'remoteurl' => 'privacy:metadata:local_zendesk_ticket_attachment:remoteurl',
+            'filename' => 'privacy:metadata:local_zendesk_ticket_attachment:filename',
+            'contenttype' => 'privacy:metadata:local_zendesk_ticket_attachment:contenttype',
+            'filesize' => 'privacy:metadata:local_zendesk_ticket_attachment:filesize',
+            'timecreated' => 'privacy:metadata:local_zendesk_ticket_attachment:timecreated',
+        ], 'privacy:metadata:local_zendesk_ticket_attachment');
+
         $collection->add_external_location_link('zendesk_support_api', [
             'fullname' => 'privacy:metadata:zendesk_support_api:fullname',
             'email' => 'privacy:metadata:zendesk_support_api:email',
@@ -234,6 +244,7 @@ final class provider implements
             return;
         }
 
+        $DB->delete_records('local_zendesk_ticket_attachment');
         $DB->delete_records('local_zendesk_ticket');
         $DB->delete_records('local_zendesk_usermap');
     }
@@ -252,6 +263,11 @@ final class provider implements
         }
 
         $userid = (int) $contextlist->get_user()->id;
+        $ticketids = $DB->get_fieldset_select('local_zendesk_ticket', 'id', 'userid = :userid', ['userid' => $userid]);
+        if (!empty($ticketids)) {
+            [$insql, $inparams] = $DB->get_in_or_equal($ticketids, SQL_PARAMS_NAMED);
+            $DB->delete_records_select('local_zendesk_ticket_attachment', "localticketid {$insql}", $inparams);
+        }
         $DB->delete_records('local_zendesk_ticket', ['userid' => $userid]);
         $DB->delete_records('local_zendesk_usermap', ['userid' => $userid]);
     }
@@ -275,6 +291,15 @@ final class provider implements
         }
 
         [$insql, $params] = $DB->get_in_or_equal($userids, SQL_PARAMS_NAMED);
+        $ticketids = $DB->get_fieldset_select('local_zendesk_ticket', 'id', "userid {$insql}", $params);
+        if (!empty($ticketids)) {
+            [$ticketinsql, $ticketparams] = $DB->get_in_or_equal($ticketids, SQL_PARAMS_NAMED);
+            $DB->delete_records_select(
+                'local_zendesk_ticket_attachment',
+                "localticketid {$ticketinsql}",
+                $ticketparams
+            );
+        }
         $DB->delete_records_select('local_zendesk_ticket', "userid {$insql}", $params);
         $DB->delete_records_select('local_zendesk_usermap', "userid {$insql}", $params);
     }

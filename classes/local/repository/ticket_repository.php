@@ -329,6 +329,108 @@ final class ticket_repository {
     }
 
     /**
+     * Insert or refresh a row in the per-ticket attachment manifest.
+     *
+     * The manifest is the allow-list the attachment proxy consults before
+     * fetching a Zendesk-hosted file: a URL that does not appear here for the
+     * supplied local ticket cannot be downloaded through Moodle, even if the
+     * URL passes the host-allow-list check. Metadata fields are nullable so
+     * inline-image rewriters that only know the URL can still register entries;
+     * structured callers (the attachments list) backfill metadata when known.
+     *
+     * @param int $localticketid Local ticket id.
+     * @param string $remoteurl Zendesk-hosted asset URL.
+     * @param string|null $filename Optional file name.
+     * @param string|null $contenttype Optional MIME type reported by Zendesk.
+     * @param int|null $filesize Optional byte size reported by Zendesk.
+     * @return string The SHA-256 hex hash of the URL.
+     */
+    public function upsert_attachment_manifest(
+        int $localticketid,
+        string $remoteurl,
+        ?string $filename = null,
+        ?string $contenttype = null,
+        ?int $filesize = null
+    ): string {
+        $urlhash = hash('sha256', $remoteurl);
+        $existing = $this->db->get_record('local_zendesk_ticket_attachment', [
+            'localticketid' => $localticketid,
+            'urlhash' => $urlhash,
+        ]);
+
+        if ($existing) {
+            $update = [];
+            if ($filename !== null && empty($existing->filename)) {
+                $update['filename'] = $filename;
+            }
+            if ($contenttype !== null && empty($existing->contenttype)) {
+                $update['contenttype'] = $contenttype;
+            }
+            if ($filesize !== null && empty($existing->filesize)) {
+                $update['filesize'] = $filesize;
+            }
+            if (!empty($update)) {
+                $update['id'] = (int) $existing->id;
+                $this->db->update_record('local_zendesk_ticket_attachment', (object) $update);
+            }
+            return $urlhash;
+        }
+
+        $this->db->insert_record('local_zendesk_ticket_attachment', (object) [
+            'localticketid' => $localticketid,
+            'urlhash' => $urlhash,
+            'remoteurl' => $remoteurl,
+            'filename' => $filename,
+            'contenttype' => $contenttype,
+            'filesize' => $filesize,
+            'timecreated' => time(),
+        ]);
+
+        return $urlhash;
+    }
+
+    /**
+     * Get the manifest row for a (ticket, URL) pair if one exists.
+     *
+     * @param int $localticketid Local ticket id.
+     * @param string $remoteurl Zendesk-hosted asset URL.
+     * @return \stdClass|null
+     */
+    public function get_attachment_manifest(int $localticketid, string $remoteurl): ?\stdClass {
+        $urlhash = hash('sha256', $remoteurl);
+        $record = $this->db->get_record('local_zendesk_ticket_attachment', [
+            'localticketid' => $localticketid,
+            'urlhash' => $urlhash,
+        ]);
+
+        return $record ?: null;
+    }
+
+    /**
+     * Delete every manifest row for the supplied local ticket ids.
+     *
+     * Used by the privacy provider when ticket data is removed for a user.
+     *
+     * @param array $localticketids Local ticket ids.
+     * @return void
+     */
+    public function delete_attachment_manifest_for_tickets(array $localticketids): void {
+        if (empty($localticketids)) {
+            return;
+        }
+
+        [$insql, $params] = $this->db->get_in_or_equal(
+            array_map('intval', $localticketids),
+            SQL_PARAMS_NAMED
+        );
+        $this->db->delete_records_select(
+            'local_zendesk_ticket_attachment',
+            "localticketid {$insql}",
+            $params
+        );
+    }
+
+    /**
      * Determine whether a Zendesk status is terminal for frequent sync.
      *
      * @param string $status Zendesk ticket status.

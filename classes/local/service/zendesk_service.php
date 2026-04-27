@@ -411,7 +411,18 @@ final class zendesk_service {
             throw new \moodle_exception('invalidattachmenturl', constants::COMPONENT);
         }
 
-        return $this->download_remote_asset($remoteurl);
+        // Bind the requested URL to a manifest row scoped to this ticket. The
+        // manifest is populated when the ticket detail view is rendered, so a
+        // user can only fetch an attachment URL that belongs to a comment on a
+        // ticket they themselves can see. This closes the gap where any URL on
+        // the configured Zendesk subdomain would otherwise be proxied with the
+        // service-account token's privileges.
+        $manifest = $this->repository->get_attachment_manifest((int) $record->id, $remoteurl);
+        if (!$manifest) {
+            throw new \moodle_exception('invalidattachmenturl', constants::COMPONENT);
+        }
+
+        return $this->download_remote_asset((string) $manifest->remoteurl);
     }
 
     /**
@@ -631,10 +642,23 @@ final class zendesk_service {
 
             $filesize = !empty($attachment['size']) ? (int) $attachment['size'] : 0;
             $contenttype = strtolower((string) ($attachment['content_type'] ?? ''));
+            $filename = trim((string) ($attachment['file_name'] ?? get_string('attachmentfile', constants::COMPONENT)));
+            $manifestsize = $filesize > 0 ? $filesize : null;
             $attachments[] = [
-                'filename' => trim((string) ($attachment['file_name'] ?? get_string('attachmentfile', constants::COMPONENT))),
-                'downloadurl' => $this->proxy_or_passthrough_asset_url($localticketid, $contenturl),
-                'previewurl' => $this->proxy_or_passthrough_asset_url($localticketid, $previewurl),
+                'filename' => $filename,
+                'downloadurl' => $this->proxy_or_passthrough_asset_url(
+                    $localticketid,
+                    $contenturl,
+                    $filename,
+                    $contenttype !== '' ? $contenttype : null,
+                    $manifestsize
+                ),
+                'previewurl' => $this->proxy_or_passthrough_asset_url(
+                    $localticketid,
+                    $previewurl,
+                    $filename,
+                    $contenttype !== '' ? $contenttype : null
+                ),
                 'isimage' => str_starts_with($contenttype, 'image/'),
                 'filesizehuman' => $filesize > 0 ? display_size($filesize) : '',
                 'hasfilesize' => $filesize > 0,
@@ -898,12 +922,33 @@ final class zendesk_service {
     /**
      * Convert a remote Zendesk asset URL into a Moodle proxy URL when needed.
      *
+     * Persists a manifest row (ticket id + URL hash + URL) so that
+     * get_attachment_response_for_user can later confirm the URL legitimately
+     * belongs to a comment on this ticket.
+     *
      * @param int $localticketid Local ticket id.
      * @param string $url Remote asset URL.
+     * @param string|null $filename Optional structured filename (when known).
+     * @param string|null $contenttype Optional structured content type.
+     * @param int|null $filesize Optional structured byte size.
      * @return string
      */
-    private function proxy_or_passthrough_asset_url(int $localticketid, string $url): string {
+    private function proxy_or_passthrough_asset_url(
+        int $localticketid,
+        string $url,
+        ?string $filename = null,
+        ?string $contenttype = null,
+        ?int $filesize = null
+    ): string {
         if ($this->is_proxyable_zendesk_url($url)) {
+            $this->repository->upsert_attachment_manifest(
+                $localticketid,
+                $url,
+                $filename,
+                $contenttype,
+                $filesize
+            );
+
             return (new \moodle_url('/local/zendesk/attachment.php', [
                 'id' => $localticketid,
                 'url' => $this->encode_attachment_url($url),
