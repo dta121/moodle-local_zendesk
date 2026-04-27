@@ -30,6 +30,7 @@ use core_external\external_multiple_structure;
 use core_external\external_single_structure;
 use core_external\external_value;
 use local_zendesk\local\service\agent_context_service;
+use local_zendesk\local\service\zendesk_service;
 
 /**
  * External function for Zendesk agent context lookups.
@@ -65,6 +66,10 @@ final class get_agent_context extends external_api {
         $context = \context_system::instance();
         self::validate_context($context);
         require_capability('local/zendesk:viewallrequests', $context);
+
+        if (!(new zendesk_service())->is_enabled()) {
+            throw new \moodle_exception('zendeskdisabled', 'local_zendesk');
+        }
 
         $service = new agent_context_service();
 
