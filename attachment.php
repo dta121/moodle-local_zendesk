@@ -39,6 +39,8 @@ $service = new zendesk_service();
 $attachment = $service->get_attachment_response_for_user($id, $USER->id, $encodedurl, $canviewall);
 
 header('X-Content-Type-Options: nosniff');
+header('Cache-Control: private, no-store, no-cache, must-revalidate');
+header('Pragma: no-cache');
 header('Content-Type: ' . $attachment['contenttype']);
 if (!empty($attachment['contentlength'])) {
     header('Content-Length: ' . (int) $attachment['contentlength']);

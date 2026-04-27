@@ -59,6 +59,7 @@ try {
 $PAGE->set_url($url);
 $PAGE->set_context($context);
 $PAGE->set_pagelayout('embedded');
+$PAGE->set_cacheable(false);
 $PAGE->set_title(get_string('openhelpcenter', 'local_zendesk'));
 $PAGE->set_heading(get_string('openhelpcenter', 'local_zendesk'));
 
