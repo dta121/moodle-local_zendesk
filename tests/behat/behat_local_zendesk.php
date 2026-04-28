@@ -60,6 +60,17 @@ class behat_local_zendesk extends behat_base {
     }
 
     /**
+     * Enable Zendesk Help Center SSO with a test shared secret so JWT minting
+     * succeeds inside Behat scenarios.
+     *
+     * @Given /^Zendesk Help Center SSO is enabled and configured$/
+     */
+    public function zendesk_help_center_sso_is_enabled_and_configured(): void {
+        set_config('ssoenabled', 1, 'local_zendesk');
+        set_config('jwtsharedsecret', 'test-shared-secret', 'local_zendesk');
+    }
+
+    /**
      * Seed Zendesk ticket fixtures for Behat scenarios. Mirrors the
      * PHPUnit seed helper but accepts a Gherkin TableNode so each row
      * documents itself.
