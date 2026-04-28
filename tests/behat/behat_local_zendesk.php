@@ -71,6 +71,47 @@ class behat_local_zendesk extends behat_base {
     }
 
     /**
+     * Register a fixture response that local_zendesk's request() helper will
+     * return when the plugin makes a Zendesk API call matching the supplied
+     * method and path pattern. Fixtures are stored as JSON in the plugin's
+     * "behatresponses" config so they survive across the Behat / web request
+     * boundary.
+     *
+     * @Given /^the Zendesk API will respond to "([A-Z]+) ([^"]+)" with status (\d+) and body:$/
+     * @param string $method HTTP verb.
+     * @param string $pathpattern Path pattern matched with fnmatch (e.g.
+     *                            "/users/create_or_update.json" or
+     *                            "/tickets/*.json").
+     * @param int $status HTTP status code to return.
+     * @param \Behat\Gherkin\Node\PyStringNode $body JSON response body.
+     */
+    public function the_zendesk_api_will_respond(
+        string $method,
+        string $pathpattern,
+        int $status,
+        \Behat\Gherkin\Node\PyStringNode $body
+    ): void {
+        $existing = json_decode((string) get_config('local_zendesk', 'behatresponses'), true);
+        if (!is_array($existing)) {
+            $existing = [];
+        }
+        $decoded = json_decode($body->getRaw(), true);
+        if ($decoded === null && trim($body->getRaw()) !== '') {
+            throw new \Behat\Mink\Exception\ExpectationException(
+                'Behat fixture body is not valid JSON: ' . $body->getRaw(),
+                $this->getSession()
+            );
+        }
+        $existing[] = [
+            'method' => $method,
+            'pathpattern' => $pathpattern,
+            'status' => $status,
+            'body' => $decoded ?: [],
+        ];
+        set_config('behatresponses', json_encode($existing), 'local_zendesk');
+    }
+
+    /**
      * Seed Zendesk ticket fixtures for Behat scenarios. Mirrors the
      * PHPUnit seed helper but accepts a Gherkin TableNode so each row
      * documents itself.

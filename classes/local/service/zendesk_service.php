@@ -1101,6 +1101,54 @@ final class zendesk_service {
     }
 
     /**
+     * Look up a Behat-registered fixture response for the given (method, path)
+     * pair. Returns null when no fixture matches or when the plugin is not
+     * running under Behat. Fixtures are stored as a JSON list under the
+     * "behatresponses" plugin config and are populated from feature files via
+     * behat_local_zendesk steps.
+     *
+     * @param string $method HTTP verb.
+     * @param string $path Zendesk API path with leading slash.
+     * @return array|null The fixture in the same shape as a real upstream
+     *                  response (status / body / headers) or null on miss.
+     */
+    private function lookup_behat_response_fixture(string $method, string $path): ?array {
+        $raw = (string) get_config(constants::COMPONENT, 'behatresponses');
+        if ($raw === '') {
+            return null;
+        }
+
+        $entries = json_decode($raw, true);
+        if (!is_array($entries)) {
+            return null;
+        }
+
+        $method = strtoupper($method);
+        foreach ($entries as $entry) {
+            if (!is_array($entry)) {
+                continue;
+            }
+            if (strtoupper((string) ($entry['method'] ?? '')) !== $method) {
+                continue;
+            }
+            $pattern = (string) ($entry['pathpattern'] ?? '');
+            if ($pattern === '') {
+                continue;
+            }
+            if (!fnmatch($pattern, $path, FNM_PATHNAME | FNM_NOESCAPE)) {
+                continue;
+            }
+            return [
+                'status' => (int) ($entry['status'] ?? 200),
+                'body' => is_array($entry['body'] ?? null) ? $entry['body'] : [],
+                'headers' => is_array($entry['headers'] ?? null) ? $entry['headers'] : [],
+            ];
+        }
+
+        return null;
+    }
+
+    /**
      * Determine whether a remote URL should be proxied through Moodle.
      *
      * @param string $url Remote asset URL.
@@ -1347,6 +1395,19 @@ final class zendesk_service {
         $config = $this->get_config();
         $subdomain = $this->normalise_subdomain($config->subdomain);
         $path = '/' . ltrim($path, '/');
+
+        // Behat-only short-circuit: if this is a Behat run AND the scenario
+        // has registered a fixture for this (method, path) pair, return the
+        // fixture instead of making the real API call. The hook is gated on
+        // BEHAT_SITE_RUNNING (defined by Moodle's Behat bootstrap) so it has
+        // no effect in production or PHPUnit runs.
+        if (defined('BEHAT_SITE_RUNNING') && BEHAT_SITE_RUNNING) {
+            $stub = $this->lookup_behat_response_fixture($method, $path);
+            if ($stub !== null) {
+                return $stub;
+            }
+        }
+
         $url = 'https://' . $subdomain . '.zendesk.com/api/v2' . $path;
         if (!empty($query)) {
             $url .= '?' . http_build_query($query);
