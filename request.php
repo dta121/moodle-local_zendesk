@@ -63,14 +63,19 @@ if ($contextid > 0) {
 }
 
 $url = new moodle_url('/local/zendesk/request.php', ['courseid' => $courseid, 'contextid' => $contextid]);
-$service = new zendesk_service();
-$form = new request_form($url, ['defaults' => ['courseid' => $courseid, 'contextid' => $contextid]]);
 
+// Set the page context up-front so moodleform instantiation (which reads
+// $PAGE->context to build its renderer) does not trigger a "Coding problem:
+// $PAGE->context was not set" debugging() message that Behat treats as a
+// failure.
 $PAGE->set_url($url);
 $PAGE->set_context($context);
 $PAGE->set_pagelayout('standard');
 $PAGE->set_title(get_string('newrequest', 'local_zendesk'));
 $PAGE->set_heading(get_string('newrequest', 'local_zendesk'));
+
+$service = new zendesk_service();
+$form = new request_form($url, ['defaults' => ['courseid' => $courseid, 'contextid' => $contextid]]);
 
 if ($form->is_cancelled()) {
     redirect(new moodle_url('/local/zendesk/index.php'));
