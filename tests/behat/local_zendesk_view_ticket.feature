@@ -29,13 +29,10 @@ Feature: Students view their own Zendesk requests
     And I follow "Student one question"
     Then I should see "Help me please"
 
-  Scenario: A non-existent ticket id returns the generic invalid-ticket error
+  Scenario: A non-existent ticket id raises the generic invalid-ticket exception
     When I log in as "student1"
-    And I visit "/local/zendesk/view.php?id=999999"
-    Then I should see "could not be found"
+    Then I expect a Moodle exception containing "could not be found" when I visit "/local/zendesk/view.php?id=999999"
 
-  Scenario: Another user's ticket id returns the same invalid-ticket error
+  Scenario: Another user's ticket id raises the same invalid-ticket exception
     When I log in as "student1"
-    And I visit the Zendesk ticket page for "Student two question"
-    Then I should see "could not be found"
-    And I should not see "Different help"
+    Then I expect a Moodle exception containing "could not be found" when I visit the Zendesk ticket page for "Student two question"

@@ -132,4 +132,63 @@ class behat_local_zendesk extends behat_base {
         $ticket = $DB->get_record('local_zendesk_ticket', ['subject' => $subject], 'id', MUST_EXIST);
         $this->execute('behat_general::i_visit', ['/local/zendesk/view.php?id=' . $ticket->id]);
     }
+
+    /**
+     * Visit a URL that is expected to surface a Moodle exception page whose
+     * message contains the supplied substring. Required because Moodle's
+     * Behat session inspects every navigation for exception markers and
+     * fails the step if it finds one — so the F9 indistinguishability
+     * invariant (and similar negative paths) need a step that whitelists
+     * the expected error.
+     *
+     * @When /^I expect a Moodle exception containing "([^"]+)" when I visit "([^"]+)"$/
+     * @param string $expectedmessage Substring that must appear in the
+     *                                exception message.
+     * @param string $url Target URL relative to wwwroot.
+     */
+    public function i_expect_a_moodle_exception_containing_when_i_visit(
+        string $expectedmessage,
+        string $url
+    ): void {
+        try {
+            $this->execute('behat_general::i_visit', [$url]);
+        } catch (\Exception $e) {
+            if (stripos($e->getMessage(), $expectedmessage) !== false) {
+                return;
+            }
+            throw $e;
+        }
+
+        throw new \Behat\Mink\Exception\ExpectationException(
+            sprintf(
+                'Expected a Moodle exception containing "%s" when visiting %s, but no exception was raised.',
+                $expectedmessage,
+                $url
+            ),
+            $this->getSession()
+        );
+    }
+
+    /**
+     * Visit the Zendesk ticket page for the given subject and expect a
+     * Moodle exception containing the supplied substring. Used to pin the
+     * F9 invariant (a non-owner sees the same generic error as a missing
+     * ticket).
+     *
+     * @When /^I expect a Moodle exception containing "([^"]+)" when I visit the Zendesk ticket page for "([^"]+)"$/
+     * @param string $expectedmessage Substring that must appear.
+     * @param string $subject Ticket subject seeded by an earlier step.
+     */
+    public function i_expect_a_moodle_exception_when_visiting_zendesk_ticket(
+        string $expectedmessage,
+        string $subject
+    ): void {
+        global $DB;
+
+        $ticket = $DB->get_record('local_zendesk_ticket', ['subject' => $subject], 'id', MUST_EXIST);
+        $this->i_expect_a_moodle_exception_containing_when_i_visit(
+            $expectedmessage,
+            '/local/zendesk/view.php?id=' . $ticket->id
+        );
+    }
 }
