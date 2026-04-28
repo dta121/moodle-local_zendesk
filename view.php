@@ -35,6 +35,15 @@ require_capability('local/zendesk:viewownrequests', $context);
 
 $id = required_param('id', PARAM_INT);
 $url = new moodle_url('/local/zendesk/view.php', ['id' => $id]);
+
+// Set the page context up-front so format_text() calls inside the service
+// layer (which happen during get_request_for_user via format_ticket_for_output)
+// can read $PAGE->context. Title and heading depend on ticket data and are
+// applied below; this just establishes context and url early.
+$PAGE->set_url($url);
+$PAGE->set_context($context);
+$PAGE->set_pagelayout('standard');
+
 $service = new zendesk_service();
 $ssoservice = new jwt_sso_service();
 $canviewall = has_capability('local/zendesk:viewallrequests', $context);
@@ -102,9 +111,6 @@ $ticket['hashelpcenterlink'] = $canusehelpcenter;
 $ticket['helpcenterurl'] = (new moodle_url('/local/zendesk/sso.php', ['target' => 'requests']))->out(false);
 $ticket['helpcenterlabel'] = $ssoservice->get_button_label();
 
-$PAGE->set_url($url);
-$PAGE->set_context($context);
-$PAGE->set_pagelayout('standard');
 $PAGE->set_title($ticket['subject']);
 $PAGE->set_heading(get_string('requestdetailsheading', 'local_zendesk'));
 $PAGE->requires->css(new moodle_url('/local/zendesk/request_detail.css'));
