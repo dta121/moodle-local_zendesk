@@ -83,7 +83,6 @@ final class get_agent_context extends external_api {
      */
     public static function execute_returns(): external_single_structure {
         return new external_single_structure([
-            'userid' => new external_value(PARAM_INT, 'Moodle user id.'),
             'externalid' => new external_value(PARAM_RAW_TRIMMED, 'Zendesk external ID.'),
             'fullname' => new external_value(PARAM_TEXT, 'Moodle full name.'),
             'email' => new external_value(PARAM_RAW_TRIMMED, 'Moodle email address.'),
@@ -91,7 +90,6 @@ final class get_agent_context extends external_api {
             'auth' => new external_value(PARAM_ALPHANUMEXT, 'Moodle authentication type.'),
             'ipaddress' => new external_value(PARAM_RAW_TRIMMED, 'Moodle last known IP address.', VALUE_DEFAULT, ''),
             'location' => new external_value(PARAM_TEXT, 'Location resolved from the last known IP address.', VALUE_DEFAULT, ''),
-            'lastaccess' => new external_value(PARAM_INT, 'Unix timestamp of the user last access time.'),
             'courses' => new external_multiple_structure(new external_single_structure([
                 'id' => new external_value(PARAM_INT, 'Course id.'),
                 'shortname' => new external_value(PARAM_TEXT, 'Course short name.'),

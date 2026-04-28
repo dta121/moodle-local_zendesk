@@ -103,12 +103,11 @@ final class provider implements
         ], 'privacy:metadata:zendesk_support_api');
 
         $collection->add_external_location_link('zendesk_agent_context', [
-            'userid' => 'privacy:metadata:zendesk_agent_context:userid',
+            'externalid' => 'privacy:metadata:zendesk_agent_context:externalid',
             'fullname' => 'privacy:metadata:zendesk_agent_context:fullname',
             'email' => 'privacy:metadata:zendesk_agent_context:email',
             'profileurl' => 'privacy:metadata:zendesk_agent_context:profileurl',
             'auth' => 'privacy:metadata:zendesk_agent_context:auth',
-            'lastaccess' => 'privacy:metadata:zendesk_agent_context:lastaccess',
             'courses' => 'privacy:metadata:zendesk_agent_context:courses',
             'ipaddress' => 'privacy:metadata:zendesk_agent_context:ipaddress',
             'location' => 'privacy:metadata:zendesk_agent_context:location',

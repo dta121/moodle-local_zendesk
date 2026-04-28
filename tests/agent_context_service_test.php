@@ -73,9 +73,11 @@ final class agent_context_service_test extends \advanced_testcase {
         $service = new agent_context_service();
         $payload = $service->get_agent_context($externalid, '');
 
-        $this->assertSame((int) $user->id, $payload['userid']);
         $this->assertSame('mapped.user@example.com', $payload['email']);
         $this->assertSame('Mapped User', $payload['fullname']);
+        $this->assertSame($externalid, $payload['externalid']);
+        $this->assertArrayNotHasKey('userid', $payload);
+        $this->assertArrayNotHasKey('lastaccess', $payload);
     }
 
     /**
@@ -94,7 +96,8 @@ final class agent_context_service_test extends \advanced_testcase {
         $service = new agent_context_service();
         $payload = $service->get_agent_context($externalid, 'MATCH.EMAIL@example.com');
 
-        $this->assertSame((int) $user->id, $payload['userid']);
+        $this->assertSame('match.email@example.com', $payload['email']);
+        $this->assertSame($externalid, $payload['externalid']);
     }
 
     /**

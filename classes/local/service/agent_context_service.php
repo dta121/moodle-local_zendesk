@@ -115,8 +115,11 @@ final class agent_context_service {
     private function build_context_payload(\stdClass $user): array {
         $ipcontext = $this->get_ip_context($user);
 
+        // Trimmed to exactly the fields the Zendesk Student Lookup sidebar app
+        // consumes (audit performed during IDM-144). The previously emitted
+        // userid and lastaccess values were never read by the sidebar; dropping
+        // them shrinks the cross-trust-boundary PII payload to its minimum.
         return [
-            'userid' => (int) $user->id,
             'externalid' => $this->build_user_external_id((int) $user->id),
             'fullname' => fullname($user),
             'email' => (string) $user->email,
@@ -124,7 +127,6 @@ final class agent_context_service {
             'auth' => (string) $user->auth,
             'ipaddress' => $ipcontext['ipaddress'],
             'location' => $ipcontext['location'],
-            'lastaccess' => (int) ($user->lastaccess ?? 0),
             'courses' => $this->get_courses((int) $user->id),
         ];
     }
