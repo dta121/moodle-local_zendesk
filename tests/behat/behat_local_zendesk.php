@@ -259,4 +259,32 @@ class behat_local_zendesk extends behat_base {
             '/local/zendesk/view.php?id=' . $ticket->id
         );
     }
+
+    /**
+     * Visit the attachment proxy for a seeded ticket with a remote URL that
+     * the helper base64url-encodes for transport. The ticket id is resolved
+     * by subject so feature files do not need to know auto-increment values.
+     *
+     * @param string $expectedmessage Substring that must appear.
+     * @param string $remoteurl Raw remote URL (typically a Zendesk-hosted
+     *                          attachment URL) the proxy should reject.
+     * @param string $subject Ticket subject seeded by an earlier step.
+     *
+     * phpcs:ignore moodle.Files.LineLength.TooLong
+     * @When /^I expect a Moodle exception containing "([^"]+)" when I visit the Zendesk attachment proxy with URL "([^"]+)" for the "([^"]+)" ticket$/
+     */
+    public function i_expect_attachment_proxy_exception(
+        string $expectedmessage,
+        string $remoteurl,
+        string $subject
+    ): void {
+        global $DB;
+
+        $ticket = $DB->get_record('local_zendesk_ticket', ['subject' => $subject], 'id', MUST_EXIST);
+        $encoded = rtrim(strtr(base64_encode($remoteurl), '+/', '-_'), '=');
+        $this->i_expect_a_moodle_exception_containing_when_i_visit(
+            $expectedmessage,
+            '/local/zendesk/attachment.php?id=' . $ticket->id . '&url=' . $encoded
+        );
+    }
 }
