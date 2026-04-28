@@ -58,4 +58,78 @@ class behat_local_zendesk extends behat_base {
     public function the_zendesk_integration_is_disabled(): void {
         set_config('enabled', 0, 'local_zendesk');
     }
+
+    /**
+     * Seed Zendesk ticket fixtures for Behat scenarios. Mirrors the
+     * PHPUnit seed helper but accepts a Gherkin TableNode so each row
+     * documents itself.
+     *
+     * Required columns: username, subject, body.
+     * Optional columns: syncstate (default "active"), status (default "open").
+     *
+     * @Given /^the following Zendesk tickets exist:$/
+     * @param \Behat\Gherkin\Node\TableNode $data Ticket rows.
+     */
+    public function the_following_zendesk_tickets_exist(\Behat\Gherkin\Node\TableNode $data): void {
+        global $DB;
+
+        $now = time();
+        $instanceuuid = (string) get_config('local_zendesk', 'instanceuuid');
+        if ($instanceuuid === '') {
+            $instanceuuid = 'aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee';
+            set_config('instanceuuid', $instanceuuid, 'local_zendesk');
+        }
+
+        $counter = 0;
+        foreach ($data->getHash() as $row) {
+            $counter++;
+            $user = $DB->get_record('user', ['username' => $row['username']], '*', MUST_EXIST);
+
+            $existing = $DB->get_record('local_zendesk_usermap', ['userid' => $user->id]);
+            if ($existing) {
+                $usermapid = (int) $existing->id;
+            } else {
+                $usermapid = (int) $DB->insert_record('local_zendesk_usermap', (object) [
+                    'userid' => $user->id,
+                    'zendesk_user_id' => 100000 + (int) $user->id,
+                    'zendesk_external_id' => 'mdl:' . $instanceuuid . ':user:' . $user->id,
+                    'zendesk_email' => 'mapped' . $user->id . '@example.com',
+                    'lastsyncedat' => $now,
+                    'timecreated' => $now,
+                    'timemodified' => $now,
+                ]);
+            }
+
+            $DB->insert_record('local_zendesk_ticket', (object) [
+                'uuid' => 'behat-uuid-' . $counter . '-' . $user->id,
+                'userid' => $user->id,
+                'usermapid' => $usermapid,
+                'courseid' => null,
+                'contextid' => null,
+                'zendesk_ticket_id' => 5000 + $counter,
+                'zendesk_ticket_external_id' => 'mdl:' . $instanceuuid . ':ticket:' . $counter,
+                'subject' => $row['subject'],
+                'body' => $row['body'] ?? '',
+                'status' => $row['status'] ?? 'open',
+                'syncstate' => $row['syncstate'] ?? 'active',
+                'timecreated' => $now + $counter,
+                'timemodified' => $now + $counter,
+            ]);
+        }
+    }
+
+    /**
+     * Visit the local_zendesk ticket detail page identified by its subject.
+     * Resolves the ticket id from the local table so feature files do not
+     * have to know auto-increment values.
+     *
+     * @When /^I visit the Zendesk ticket page for "([^"]+)"$/
+     * @param string $subject The ticket subject seeded by an earlier step.
+     */
+    public function i_visit_the_zendesk_ticket_page(string $subject): void {
+        global $DB;
+
+        $ticket = $DB->get_record('local_zendesk_ticket', ['subject' => $subject], 'id', MUST_EXIST);
+        $this->execute('behat_general::i_visit', ['/local/zendesk/view.php?id=' . $ticket->id]);
+    }
 }
