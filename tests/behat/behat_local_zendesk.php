@@ -150,23 +150,39 @@ class behat_local_zendesk extends behat_base {
         string $expectedmessage,
         string $url
     ): void {
+        $caught = null;
         try {
             $this->execute('behat_general::i_visit', [$url]);
         } catch (\Exception $e) {
-            if (stripos($e->getMessage(), $expectedmessage) !== false) {
-                return;
-            }
-            throw $e;
+            $caught = $e;
         }
 
-        throw new \Behat\Mink\Exception\ExpectationException(
-            sprintf(
-                'Expected a Moodle exception containing "%s" when visiting %s, but no exception was raised.',
-                $expectedmessage,
-                $url
-            ),
-            $this->getSession()
-        );
+        // Navigate away from the error page first; otherwise Moodle's
+        // post-step look_for_exceptions hook will re-detect the same error
+        // on the still-current page and fail the scenario at the next step.
+        $this->getSession()->visit($this->locate_path('/'));
+
+        if ($caught === null) {
+            throw new \Behat\Mink\Exception\ExpectationException(
+                sprintf(
+                    'Expected a Moodle exception containing "%s" when visiting %s, but no exception was raised.',
+                    $expectedmessage,
+                    $url
+                ),
+                $this->getSession()
+            );
+        }
+
+        if (stripos($caught->getMessage(), $expectedmessage) === false) {
+            throw new \Behat\Mink\Exception\ExpectationException(
+                sprintf(
+                    'Expected exception message to contain "%s" but got: %s',
+                    $expectedmessage,
+                    $caught->getMessage()
+                ),
+                $this->getSession()
+            );
+        }
     }
 
     /**
