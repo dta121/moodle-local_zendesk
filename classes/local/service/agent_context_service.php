@@ -49,21 +49,24 @@ final class agent_context_service {
     /**
      * Get Moodle context data for a Zendesk requester.
      *
-     * Identity is resolved exclusively through the local_zendesk_usermap table,
-     * which is populated when Moodle creates or updates the matching Zendesk
-     * user. We never parse a Moodle user id out of the supplied external id and
-     * never fall back to email-only lookup, because both paths previously let a
-     * caller enumerate Moodle accounts (security review F1).
+     * Identity is bound to the Zendesk requester ID recorded on
+     * local_zendesk_usermap.zendesk_user_id. The caller may also supply the
+     * current external id and email as optional consistency checks, but neither
+     * value is trusted as the primary selector because mutable caller-supplied
+     * identifiers previously let the agent app look up the wrong Moodle user
+     * (security review F1).
      *
+     * @param int $zendeskuserid Zendesk requester user id.
      * @param string|null $externalid Zendesk external id.
      * @param string|null $email Zendesk requester email.
      * @return array
      */
-    public function get_agent_context(?string $externalid, ?string $email): array {
+    public function get_agent_context(int $zendeskuserid, ?string $externalid, ?string $email): array {
+        $zendeskuserid = (int) $zendeskuserid;
         $externalid = trim((string) $externalid);
         $email = trim((string) $email);
 
-        if ($externalid === '' && $email === '') {
+        if ($zendeskuserid <= 0) {
             throw new \invalid_parameter_exception(get_string('agentcontextmissinginput', constants::COMPONENT));
         }
 
@@ -71,7 +74,7 @@ final class agent_context_service {
             throw new \invalid_parameter_exception(get_string('agentcontextinvalidemail', constants::COMPONENT));
         }
 
-        $user = $externalid !== '' ? $this->find_user_via_usermap($externalid, $email) : null;
+        $user = $this->find_user_via_usermap($zendeskuserid, $externalid, $email);
 
         if (!$user) {
             throw new \moodle_exception('agentcontextnotfound', constants::COMPONENT);
@@ -81,21 +84,31 @@ final class agent_context_service {
     }
 
     /**
-     * Resolve a Moodle user from a Zendesk external id via the local mapping.
+     * Resolve a Moodle user from the bound Zendesk requester id via the local
+     * mapping table.
      *
-     * If an email is also supplied, it must match the zendesk_email recorded on
-     * the matching usermap row (case-insensitive); a mismatch is treated as
-     * "not found" so a caller cannot probe combinations of external id and
-     * arbitrary email.
+     * Optional external id and email values act only as consistency checks on
+     * the mapping row already selected by zendesk_user_id. Ambiguous mappings
+     * are rejected so the service never returns a context payload for an
+     * identity that is not uniquely bound.
      *
-     * @param string $externalid Zendesk external id.
-     * @param string $email Optional Zendesk requester email; '' to skip the
-     *                      email cross-check.
+     * @param int $zendeskuserid Zendesk requester user id.
+     * @param string $externalid Optional Zendesk requester external id.
+     * @param string $email Optional Zendesk requester email.
      * @return \stdClass|null
      */
-    private function find_user_via_usermap(string $externalid, string $email): ?\stdClass {
-        $map = $this->db->get_record('local_zendesk_usermap', ['zendesk_external_id' => $externalid]);
+    private function find_user_via_usermap(int $zendeskuserid, string $externalid, string $email): ?\stdClass {
+        $maps = $this->db->get_records('local_zendesk_usermap', ['zendesk_user_id' => $zendeskuserid], 'id ASC');
+        if (count($maps) !== 1) {
+            return null;
+        }
+
+        $map = reset($maps);
         if (!$map) {
+            return null;
+        }
+
+        if ($externalid !== '' && (string) $map->zendesk_external_id !== $externalid) {
             return null;
         }
 
@@ -116,11 +129,10 @@ final class agent_context_service {
         $ipcontext = $this->get_ip_context($user);
 
         // Trimmed to exactly the fields the Zendesk Student Lookup sidebar app
-        // consumes (audit performed during IDM-144). The previously emitted
-        // userid and lastaccess values were never read by the sidebar; dropping
-        // them shrinks the cross-trust-boundary PII payload to its minimum.
+        // still needs after F1. The sidebar now binds lookups to the Zendesk
+        // requester ID, so the stable external id no longer needs to cross the
+        // trust boundary back to agents.
         return [
-            'externalid' => $this->build_user_external_id((int) $user->id),
             'fullname' => fullname($user),
             'email' => (string) $user->email,
             'profileurl' => (new \moodle_url('/user/profile.php', ['id' => $user->id]))->out(false),
@@ -341,32 +353,5 @@ final class agent_context_service {
      */
     private function clean_location_part($value): string {
         return clean_param(trim((string) $value), PARAM_TEXT);
-    }
-
-    /**
-     * Build the stable Zendesk user external id.
-     *
-     * @param int $userid Moodle user id.
-     * @return string
-     */
-    private function build_user_external_id(int $userid): string {
-        return 'mdl:' . $this->get_instance_uuid() . ':user:' . $userid;
-    }
-
-    /**
-     * Read the plugin instance UUID seeded at install/upgrade time
-     * (security review F12). Treated as immutable at runtime.
-     *
-     * @return string
-     */
-    private function get_instance_uuid(): string {
-        $instanceuuid = trim((string) get_config(constants::COMPONENT, 'instanceuuid'));
-        if ($instanceuuid === '') {
-            throw new \coding_exception(
-                'local_zendesk instance UUID is not initialised; run admin/cli/upgrade.php to seed it.'
-            );
-        }
-
-        return $instanceuuid;
     }
 }

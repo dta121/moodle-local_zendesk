@@ -96,6 +96,20 @@ final class jwt_sso_service_test extends \advanced_testcase {
     }
 
     /**
+     * Test that safe absolute Help Center URLs on the configured Zendesk host are accepted.
+     *
+     * @return void
+     */
+    public function test_resolve_return_to_accepts_absolute_help_center_path(): void {
+        $service = new jwt_sso_service();
+
+        $this->assertSame(
+            'https://sayloruniversity.zendesk.com/hc/en-us/requests?status=open',
+            $service->resolve_return_to('https://sayloruniversity.zendesk.com/hc/en-us/requests?status=open', null)
+        );
+    }
+
+    /**
      * Test that off-site return URLs are rejected.
      *
      * @return void
@@ -105,6 +119,18 @@ final class jwt_sso_service_test extends \advanced_testcase {
 
         $service = new jwt_sso_service();
         $service->resolve_return_to('https://example.com/hc/en-us/requests', null);
+    }
+
+    /**
+     * Test that same-host absolute URLs outside Help Center are rejected.
+     *
+     * @return void
+     */
+    public function test_resolve_return_to_rejects_absolute_non_help_center_path(): void {
+        $this->expectException(\moodle_exception::class);
+
+        $service = new jwt_sso_service();
+        $service->resolve_return_to('https://sayloruniversity.zendesk.com/agent/tickets/123', null);
     }
 
     /**
@@ -121,6 +147,8 @@ final class jwt_sso_service_test extends \advanced_testcase {
             'single dot segment' => ['/hc/./requests'],
             'percent-encoded single dot' => ['/hc/%2e/requests'],
             'trailing dot dot' => ['/hc/en-us/..'],
+            'absolute literal dot dot in /hc/ path' => ['https://sayloruniversity.zendesk.com/hc/../etc'],
+            'absolute percent-encoded dot dot' => ['https://sayloruniversity.zendesk.com/hc/%2e%2e/etc'],
         ];
     }
 

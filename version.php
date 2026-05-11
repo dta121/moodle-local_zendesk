@@ -25,8 +25,8 @@
 defined('MOODLE_INTERNAL') || die();
 
 $plugin->component = 'local_zendesk';
-$plugin->version = 2026042811;
+$plugin->version = 2026051100;
 $plugin->requires = 2024100700;
 $plugin->supported = [405, 405];
 $plugin->maturity = MATURITY_BETA;
-$plugin->release = '0.3.0';
+$plugin->release = '0.3.1';

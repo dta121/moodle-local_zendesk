@@ -293,7 +293,27 @@ final class jwt_sso_service {
             return '';
         }
 
-        return $returnto;
+        if (!empty($parts['port']) || !empty($parts['user']) || !empty($parts['pass'])) {
+            return '';
+        }
+
+        $relative = $parts['path'] ?? '';
+        if ($relative === '') {
+            return '';
+        }
+        if (!empty($parts['query'])) {
+            $relative .= '?' . $parts['query'];
+        }
+        if (!empty($parts['fragment'])) {
+            $relative .= '#' . $parts['fragment'];
+        }
+
+        $validated = $this->validate_relative_return_to($relative);
+        if ($validated === '') {
+            return '';
+        }
+
+        return 'https://' . $expectedhost . $validated;
     }
 
     /**

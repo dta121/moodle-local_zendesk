@@ -24,7 +24,7 @@
 
 
 $string['agentcontextinvalidemail'] = 'The supplied email address is not valid.';
-$string['agentcontextmissinginput'] = 'An external ID or email address is required to look up Moodle context.';
+$string['agentcontextmissinginput'] = 'A Zendesk requester ID is required to look up Moodle context.';
 $string['agentcontextnotfound'] = 'No Moodle user could be matched for the supplied Zendesk requester.';
 $string['agentcontextservice'] = 'Zendesk agent context service';
 $string['allrequests'] = 'All requests';
@@ -111,7 +111,6 @@ $string['privacy:metadata:zendesk_agent_context'] = 'When the optional Student L
 $string['privacy:metadata:zendesk_agent_context:auth'] = 'The Moodle authentication method returned to the Zendesk agent app.';
 $string['privacy:metadata:zendesk_agent_context:courses'] = 'The list of recent or current Moodle courses returned to the Zendesk agent app.';
 $string['privacy:metadata:zendesk_agent_context:email'] = 'The Moodle user email returned to the Zendesk agent app.';
-$string['privacy:metadata:zendesk_agent_context:externalid'] = 'The stable Moodle-generated Zendesk external ID returned to the Zendesk agent app.';
 $string['privacy:metadata:zendesk_agent_context:fullname'] = 'The Moodle user full name returned to the Zendesk agent app.';
 $string['privacy:metadata:zendesk_agent_context:ipaddress'] = 'The user last known IP address returned to the Zendesk agent app when permitted.';
 $string['privacy:metadata:zendesk_agent_context:location'] = 'The approximate location derived from the last known IP address when permitted.';

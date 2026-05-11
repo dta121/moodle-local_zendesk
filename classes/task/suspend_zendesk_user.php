@@ -34,6 +34,9 @@ use local_zendesk\local\service\zendesk_service;
  * Moodle delete operation is never blocked on a Zendesk API call.
  */
 final class suspend_zendesk_user extends \core\task\adhoc_task {
+    /** @var int Retry temporary cleanup blockers after 15 minutes. */
+    private const RETRY_DELAY_SECONDS = 900;
+
     /**
      * Get the human-readable task name.
      *
@@ -62,14 +65,12 @@ final class suspend_zendesk_user extends \core\task\adhoc_task {
 
         $service = new zendesk_service();
         if (!$service->is_enabled()) {
-            mtrace('[local_zendesk] suspend_zendesk_user: plugin disabled, skipping suspend for Zendesk user '
-                . $zendeskuserid . '.');
+            $this->queue_retry($zendeskuserid, $usermapid, 'plugin disabled');
             return;
         }
 
         if (!$service->is_configured()) {
-            mtrace('[local_zendesk] suspend_zendesk_user: plugin not configured, skipping suspend for Zendesk user '
-                . $zendeskuserid . '.');
+            $this->queue_retry($zendeskuserid, $usermapid, 'plugin not configured');
             return;
         }
 
@@ -79,5 +80,28 @@ final class suspend_zendesk_user extends \core\task\adhoc_task {
         if ($usermapid > 0) {
             $DB->delete_records('local_zendesk_usermap', ['id' => $usermapid]);
         }
+    }
+
+    /**
+     * Re-queue the suspend task when the plugin is temporarily unable to call
+     * Zendesk so the deleted-user cleanup does not fail open.
+     *
+     * @param int $zendeskuserid Zendesk-side user id.
+     * @param int $usermapid Local user-map row id.
+     * @param string $reason Human-readable requeue reason.
+     * @return void
+     */
+    private function queue_retry(int $zendeskuserid, int $usermapid, string $reason): void {
+        $retrytask = new self();
+        $retrytask->set_custom_data((object) [
+            'zendeskuserid' => $zendeskuserid,
+            'usermapid' => $usermapid,
+        ]);
+        $retrytask->set_next_run_time(time() + self::RETRY_DELAY_SECONDS);
+        \core\task\manager::queue_adhoc_task($retrytask);
+
+        mtrace('[local_zendesk] suspend_zendesk_user: ' . $reason
+            . ', re-queued suspend for Zendesk user ' . $zendeskuserid
+            . ' in ' . self::RETRY_DELAY_SECONDS . ' seconds.');
     }
 }

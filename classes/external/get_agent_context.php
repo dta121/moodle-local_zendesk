@@ -45,6 +45,12 @@ final class get_agent_context extends external_api {
      */
     public static function execute_parameters(): external_function_parameters {
         return new external_function_parameters([
+            'zendeskuserid' => new external_value(
+                PARAM_INT,
+                'Zendesk requester user ID.',
+                VALUE_DEFAULT,
+                0
+            ),
             'externalid' => new external_value(PARAM_RAW_TRIMMED, 'Zendesk external ID.', VALUE_DEFAULT, ''),
             'email' => new external_value(PARAM_RAW_TRIMMED, 'Zendesk requester email.', VALUE_DEFAULT, ''),
         ]);
@@ -53,12 +59,14 @@ final class get_agent_context extends external_api {
     /**
      * Return Moodle context for a Zendesk requester.
      *
+     * @param int $zendeskuserid Zendesk requester user id.
      * @param string $externalid Zendesk external id.
      * @param string $email Zendesk requester email.
      * @return array
      */
-    public static function execute(string $externalid = '', string $email = ''): array {
+    public static function execute(int $zendeskuserid = 0, string $externalid = '', string $email = ''): array {
         $params = self::validate_parameters(self::execute_parameters(), [
+            'zendeskuserid' => $zendeskuserid,
             'externalid' => $externalid,
             'email' => $email,
         ]);
@@ -73,7 +81,11 @@ final class get_agent_context extends external_api {
 
         $service = new agent_context_service();
 
-        return $service->get_agent_context($params['externalid'], $params['email']);
+        return $service->get_agent_context(
+            (int) $params['zendeskuserid'],
+            $params['externalid'],
+            $params['email']
+        );
     }
 
     /**
@@ -83,7 +95,6 @@ final class get_agent_context extends external_api {
      */
     public static function execute_returns(): external_single_structure {
         return new external_single_structure([
-            'externalid' => new external_value(PARAM_RAW_TRIMMED, 'Zendesk external ID.'),
             'fullname' => new external_value(PARAM_TEXT, 'Moodle full name.'),
             'email' => new external_value(PARAM_RAW_TRIMMED, 'Moodle email address.'),
             'profileurl' => new external_value(PARAM_URL, 'Moodle profile URL.'),

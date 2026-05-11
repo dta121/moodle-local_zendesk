@@ -332,7 +332,8 @@ final class zendesk_service {
             return $ticket;
         }
 
-        $replyaction = $this->get_reply_action_for_ticket($record);
+        $canreply = (int) $record->userid === $userid;
+        $replyaction = $canreply ? $this->get_reply_action_for_ticket($record) : 'none';
         if ($replyaction !== 'none') {
             $ticket['hasreplyform'] = true;
             if ($replyaction === 'followup') {
@@ -396,6 +397,7 @@ final class zendesk_service {
 
         $record = $this->repository->get_ticket($ticketid);
         $this->assert_ticket_access($record, $userid, $canviewall);
+        $this->assert_ticket_owner($record, $userid);
 
         if (empty($record->zendesk_ticket_id)) {
             throw new \moodle_exception('replynotavailable', constants::COMPONENT);
@@ -644,7 +646,11 @@ final class zendesk_service {
     private function format_comment_body_html(int $localticketid, array $comment): string {
         $htmlbody = trim((string) ($comment['html_body'] ?? ''));
         if ($htmlbody !== '') {
-            $htmlbody = $this->rewrite_comment_asset_urls($localticketid, $htmlbody);
+            $htmlbody = $this->rewrite_comment_asset_urls(
+                $localticketid,
+                $htmlbody,
+                $this->get_comment_manifestable_assets($comment)
+            );
             $htmlbody = $this->remove_inline_images_from_comment_html($htmlbody);
             return format_text($htmlbody, FORMAT_HTML, [
                 'trusted' => false,
@@ -718,6 +724,108 @@ final class zendesk_service {
         }
 
         return $attachments;
+    }
+
+    /**
+     * Collect the structured attachment and thumbnail URLs Zendesk reported
+     * for a comment so HTML rewriting only manifests those exact assets.
+     *
+     * @param array $comment Raw Zendesk comment payload.
+     * @return array
+     */
+    private function get_comment_manifestable_assets(array $comment): array {
+        $assets = [];
+
+        foreach ($comment['attachments'] ?? [] as $attachment) {
+            if (!is_array($attachment) || !empty($attachment['deleted'])) {
+                continue;
+            }
+
+            $filename = trim((string) ($attachment['file_name'] ?? get_string('attachmentfile', constants::COMPONENT)));
+            $contenttype = strtolower((string) ($attachment['content_type'] ?? ''));
+            $manifestcontenttype = $contenttype !== '' ? $contenttype : null;
+            $filesize = !empty($attachment['size']) ? (int) $attachment['size'] : 0;
+            $manifestsize = $filesize > 0 ? $filesize : null;
+
+            $this->add_comment_manifestable_asset(
+                $assets,
+                trim((string) ($attachment['content_url'] ?? '')),
+                $filename,
+                $manifestcontenttype,
+                $manifestsize
+            );
+            $this->add_comment_manifestable_asset(
+                $assets,
+                trim((string) ($attachment['mapped_content_url'] ?? '')),
+                $filename,
+                $manifestcontenttype,
+                $manifestsize
+            );
+
+            if (empty($attachment['thumbnails']) || !is_array($attachment['thumbnails'])) {
+                continue;
+            }
+
+            foreach ($attachment['thumbnails'] as $thumbnail) {
+                if (!is_array($thumbnail)) {
+                    continue;
+                }
+
+                $thumbnailcontenttype = strtolower((string) ($thumbnail['content_type'] ?? ''));
+                if ($thumbnailcontenttype === '') {
+                    $thumbnailcontenttype = $contenttype;
+                }
+                $thumbnailmanifestcontenttype = $thumbnailcontenttype !== '' ? $thumbnailcontenttype : null;
+                $thumbnailsize = !empty($thumbnail['size']) ? (int) $thumbnail['size'] : 0;
+                $thumbnailmanifestsize = $thumbnailsize > 0 ? $thumbnailsize : null;
+
+                $this->add_comment_manifestable_asset(
+                    $assets,
+                    trim((string) ($thumbnail['content_url'] ?? '')),
+                    $filename,
+                    $thumbnailmanifestcontenttype,
+                    $thumbnailmanifestsize
+                );
+                $this->add_comment_manifestable_asset(
+                    $assets,
+                    trim((string) ($thumbnail['mapped_content_url'] ?? '')),
+                    $filename,
+                    $thumbnailmanifestcontenttype,
+                    $thumbnailmanifestsize
+                );
+            }
+        }
+
+        return $assets;
+    }
+
+    /**
+     * Register a structured comment asset for later HTML rewriting.
+     *
+     * @param array $assets Asset metadata keyed by remote URL.
+     * @param string $url Structured remote asset URL.
+     * @param string|null $filename Structured filename.
+     * @param string|null $contenttype Structured content type.
+     * @param int|null $filesize Structured byte size.
+     * @return void
+     */
+    private function add_comment_manifestable_asset(
+        array &$assets,
+        string $url,
+        ?string $filename = null,
+        ?string $contenttype = null,
+        ?int $filesize = null
+    ): void {
+        if ($url === '' || !$this->is_proxyable_zendesk_url($url)) {
+            return;
+        }
+
+        $existing = $assets[$url] ?? [];
+        $assets[$url] = [
+            'filename' => $existing['filename'] ?? $filename,
+            'contenttype' => $existing['contenttype'] ?? $contenttype,
+            'filesize' => $existing['filesize'] ?? $filesize,
+        ];
     }
 
     /**
@@ -955,14 +1063,30 @@ final class zendesk_service {
      *
      * @param int $localticketid Local ticket id.
      * @param string $html Raw Zendesk comment HTML.
+     * @param array $manifestableassets Structured asset metadata keyed by URL.
      * @return string
      */
-    private function rewrite_comment_asset_urls(int $localticketid, string $html): string {
+    private function rewrite_comment_asset_urls(
+        int $localticketid,
+        string $html,
+        array $manifestableassets = []
+    ): string {
         $rewritten = preg_replace_callback(
             '/\b(href|src)=(["\'])([^"\']+)\2/i',
-            function (array $matches) use ($localticketid): string {
+            function (array $matches) use ($localticketid, $manifestableassets): string {
                 $rawurl = html_entity_decode($matches[3], ENT_QUOTES | ENT_HTML5);
-                $url = $this->proxy_or_passthrough_asset_url($localticketid, $rawurl);
+                $asset = $manifestableassets[$rawurl] ?? null;
+                if (!is_array($asset)) {
+                    return $matches[0];
+                }
+
+                $url = $this->proxy_or_passthrough_asset_url(
+                    $localticketid,
+                    $rawurl,
+                    $asset['filename'] ?? null,
+                    $asset['contenttype'] ?? null,
+                    $asset['filesize'] ?? null
+                );
                 return $matches[1] . '=' . $matches[2] . s($url) . $matches[2];
             },
             $html
@@ -1251,6 +1375,19 @@ final class zendesk_service {
                 'nopermissions',
                 ''
             );
+        }
+    }
+
+    /**
+     * Validate that the current write operation targets the user's own ticket.
+     *
+     * @param \stdClass $ticket Local ticket record.
+     * @param int $userid Moodle user id.
+     * @return void
+     */
+    private function assert_ticket_owner(\stdClass $ticket, int $userid): void {
+        if ((int) $ticket->userid !== $userid) {
+            throw new \moodle_exception('replynotallowed', constants::COMPONENT);
         }
     }
 
